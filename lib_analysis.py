@@ -1,71 +1,49 @@
 import argparse
 
-from coffea import hist, processor
-from coffea.analysis_objects import JaggedCandidateArray
+#from coffea import hist, processor
+#from coffea.analysis_objects import JaggedCandidateArray
 import numpy as np
 
-class ttHbb(processor.ProcessorABC):
-	def __init__(self):
-		self._accumulator = processor.dict_accumulator({
-			"sumw": processor.defaultdict_accumulator(float),
-			"mass": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("mw_vis", "$M^{vis}_W$ [GeV]", 41, 0, 400),
-			),
-			"pt": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt_muon", "$p^{T}_{\mu}$ [GeV]", 41, 0, 400),
-			),
-		})
+def lepton_selection(leps, cuts, year):
 
-	@property
-	def accumulator(self):
-		return self._accumulator
+	passes_eta = (np.abs(leps.eta) < cuts["eta"])
+	passes_subleading_pt = (leps.pt > cuts["subleading_pt"])
+	passes_leading_pt = (leps.pt > cuts["leading_pt"][year])
 
-	def process(self, events, parameters={}, samples_info={}, is_mc=True, lumimask=None, cat=False, boosted=False, uncertainty=None, uncertaintyName=None, parametersName=None, extraCorrection=None):
-		output = self.accumulator.identity()
-		dataset=events.metadata["dataset"]
+	if cuts["type"] == "el":
+		sca = np.abs(leps.deltaEtaSC + leps.eta)
+		passes_id = (leps.cutBased >= 4)
+		passes_SC = np.invert((sca >= 1.4442) & (sca <= 1.5660))
+		# cuts taken from: https://twiki.cern.ch/twiki/bin/view/CMS/CutBasedElectronIdentificationRun2#Working_points_for_92X_and_later
+		passes_impact = ((leps.dz < 0.10) & (sca <= 1.479)) | ((leps.dz < 0.20) & (sca > 1.479)) | ((leps.dxy < 0.05) & (sca <= 1.479)) | ((leps.dxy < 0.1) & (sca > 1.479))
 
-		muons = events.Muon
-		electrons = events.Electron
-		#scalars = events.eventvars
-		jets = events.Jet
-		fatjets = events.FatJet
-		MET = events.MET
-		PuppiMET = events.PuppiMET
-		if is_mc:
-			genparts = events.GenPart
+		#select electrons
+		good_leps = passes_eta & passes_leading_pt & passes_id & passes_SC & passes_impact
+		veto_leps = passes_eta & passes_subleading_pt & np.invert(good_leps) & passes_id & passes_SC & passes_impact
 
-		"""
-		if args.year=='2017':
-			metstruct = 'METFixEE2017'
-		else:
-			metstruct = 'MET'
-		"""
+	elif cuts["type"] == "mu":
+		passes_leading_iso = (leps.pfRelIso04_all < cuts["leading_iso"])
+		passes_subleading_iso = (leps.pfRelIso04_all < cuts["subleading_iso"])
+		passes_id = (leps.tightId == 1)
 
-		muons.p4 = JaggedCandidateArray.candidatesfromcounts(muons.counts, pt=muons.pt, eta=muons.eta, phi=muons.phi, mass=muons.mass)
-		jets.p4 = JaggedCandidateArray.candidatesfromcounts(jets.counts, pt=jets.pt, eta=jets.eta, phi=jets.phi, mass=jets.mass)
-		METp4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET.pt), pt=MET.pt, eta=np.zeros_like(MET.pt), phi=MET.phi, mass=np.zeros_like(MET.pt))
-		#METp4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET), pt=scalars[metstruct+"_pt"], eta=np.zeros_like(MET), phi=scalars[metstruct+"_phi"], mass=np.zeros_like(MET))
-		nEvents = len(events.event)
-	
-		cut = (muons.counts == 1) & (jets.counts >= 2)
-		#selected_events = events[cut]
-		candidate_w = muons.p4[cut].cross(METp4[cut])
-				
-		output["sumw"][dataset] += nEvents
-		output["mass"].fill(
-			dataset=dataset,
-			mw_vis=candidate_w.mass.flatten(),
-		)
-		output["pt"].fill(
-			dataset=dataset,
-			pt_muon=muons[cut].pt.flatten()
-		)
+		#select muons
+		good_leps = passes_eta & passes_leading_pt & passes_leading_iso & passes_id
+		veto_leps = passes_eta & passes_subleading_pt & passes_subleading_iso & passes_id & np.invert(good_leps)
 
-		return output
+	return good_leps, veto_leps
 
-	def postprocess(self, accumulator):
-		return accumulator
+def jet_selection(jets, leps, mask_leps, cuts):
+
+	#pairs = jets.p4.cross(leps.p4[mask_leps])
+	pairs = jets.cross(leps[mask_leps])
+	#print(pairs.columns)
+	print(pairs.i0)
+	print(pairs.i1)
+	#jets_pass_dr = ha.mask_deltar_first(jets, jets.masks["all"], leps, mask_leps, cuts["dr"])
+	#jets.masks["pass_dr"] = jets_pass_dr
+	#good_jets = (jets.pt > cuts["pt"]) & (NUMPY_LIB.abs(jets.eta) < cuts["eta"]) & (jets.jetId >= cuts["jetId"]) & jets_pass_dr
+	#if cuts["type"] == "jet":
+	#  good_jets &= ((jets.pt<50) & (jets.puId>=cuts["puId"]) ) | (jets.pt>=50) 
+
+	#return good_jets
+	return
