@@ -2,7 +2,9 @@ import argparse
 
 #from coffea import hist, processor
 #from coffea.analysis_objects import JaggedCandidateArray
+from awkward.array.jagged import JaggedArray
 import numpy as np
+import math
 
 def lepton_selection(leps, cuts, year):
 
@@ -32,18 +34,22 @@ def lepton_selection(leps, cuts, year):
 
 	return good_leps, veto_leps
 
+def pass_dr(pairs, dr):
+
+    deta = pairs.i0.eta - pairs.i1.eta
+    dphi = pairs.i0.phi - pairs.i1.phi
+    
+    return deta**2 + dphi**2 > dr**2
+
+
 def jet_selection(jets, leps, mask_leps, cuts):
 
-	#pairs = jets.p4.cross(leps.p4[mask_leps])
-	pairs = jets.cross(leps[mask_leps])
-	#print(pairs.columns)
-	print(pairs.i0)
-	print(pairs.i1)
-	#jets_pass_dr = ha.mask_deltar_first(jets, jets.masks["all"], leps, mask_leps, cuts["dr"])
-	#jets.masks["pass_dr"] = jets_pass_dr
-	#good_jets = (jets.pt > cuts["pt"]) & (NUMPY_LIB.abs(jets.eta) < cuts["eta"]) & (jets.jetId >= cuts["jetId"]) & jets_pass_dr
-	#if cuts["type"] == "jet":
-	#  good_jets &= ((jets.pt<50) & (jets.puId>=cuts["puId"]) ) | (jets.pt>=50) 
+	nested_mask = jets.p4.match(leps.p4[mask_leps], matchfunc=pass_dr, dr=cuts["dr"])
+	# Only jets that are more distant than dr to ALL leptons are tagged as good jets
+	jets_pass_dr = nested_mask.all()
+	good_jets = (jets.pt > cuts["pt"]) & (np.abs(jets.eta) < cuts["eta"]) & (jets.jetId >= cuts["jetId"]) & jets_pass_dr
+	
+	if cuts["type"] == "jet":
+		good_jets = good_jets & ( (jets.pt < 50) & (jets.puId >= cuts["puId"]) ) | (jets.pt >= 50)
 
-	#return good_jets
-	return
+	return good_jets

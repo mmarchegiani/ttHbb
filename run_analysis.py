@@ -7,7 +7,7 @@ from coffea.analysis_objects import JaggedCandidateArray
 import matplotlib.pyplot as plt
 import numpy as np
 
-from lib_analysis import lepton_selection, jet_selection
+from lib_analysis import lepton_selection, jet_selection, pass_dr
 from definitions_analysis import parameters, histogram_settings
 
 class ttHbb(processor.ProcessorABC):
@@ -30,6 +30,18 @@ class ttHbb(processor.ProcessorABC):
 				hist.Cat("dataset", "Dataset"),
 				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
 				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"jets": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['leading_jet_pt'])),
+				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['leading_jet_eta'])),
+			),
+			"good_jets": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['leading_jet_pt'])),
+				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['leading_jet_eta'])),
 			),
 		})
 
@@ -63,12 +75,12 @@ class ttHbb(processor.ProcessorABC):
 			metstruct = 'MET'
 			MET = events.MET
 
-		print("MET choice: %s" % metstruct)
+		#print("MET choice: %s" % metstruct)
 
 		muons.p4 = JaggedCandidateArray.candidatesfromcounts(muons.counts, pt=muons.pt.content, eta=muons.eta.content, phi=muons.phi.content, mass=muons.mass.content)
-		jets.p4 = JaggedCandidateArray.candidatesfromcounts(jets.counts, pt=jets.pt, eta=jets.eta, phi=jets.phi, mass=jets.mass)
+		electrons.p4 = JaggedCandidateArray.candidatesfromcounts(electrons.counts, pt=electrons.pt.content, eta=electrons.eta.content, phi=electrons.phi.content, mass=electrons.mass.content)
+		jets.p4 = JaggedCandidateArray.candidatesfromcounts(jets.counts, pt=jets.pt.content, eta=jets.eta.content, phi=jets.phi.content, mass=jets.mass.content)
 		METp4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET.pt), pt=MET.pt, eta=np.zeros_like(MET.pt), phi=MET.phi, mass=np.zeros_like(MET.pt))
-		#METp4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET), pt=scalars[metstruct+"_pt"], eta=np.zeros_like(MET), phi=scalars[metstruct+"_phi"], mass=np.zeros_like(MET))
 		
 		"""
 		for obj in [muons, electrons, jets, fatjets, PuppiMET, MET]:
@@ -101,8 +113,8 @@ class ttHbb(processor.ProcessorABC):
 		good_electrons, veto_electrons = lepton_selection(electrons, parameters["electrons"], args.year)
 		good_jets = jet_selection(jets, muons, (good_muons|veto_muons), parameters["jets"]) & jet_selection(jets, electrons, (good_electrons|veto_electrons), parameters["jets"])
 	#    good_jets = jet_selection(jets, muons, (veto_muons | good_muons), parameters["jets"]) & jet_selection(jets, electrons, (veto_electrons | good_electrons) , parameters["jets"])
-		#bjets_resolved = good_jets & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
-		#good_fatjets = jet_selection(fatjets, muons, good_muons, parameters["fatjets"]) & jet_selection(fatjets, electrons, good_electrons, parameters["fatjets"])
+		bjets_resolved = good_jets & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
+		good_fatjets = jet_selection(fatjets, muons, good_muons, parameters["fatjets"]) & jet_selection(fatjets, electrons, good_electrons, parameters["fatjets"])
 	#    good_fatjets = jet_selection(fatjets, muons, (veto_muons | good_muons), parameters["fatjets"]) & jet_selection(fatjets, electrons, (veto_electrons | good_electrons), parameters["fatjets"]) #FIXME remove vet_leptons
 
 	#    higgs_candidates = good_fatjets & (fatjets.pt > 250)
@@ -112,10 +124,18 @@ class ttHbb(processor.ProcessorABC):
 	#    best_higgs_candidate[ (fatjets.offsets[:-1] + indices["best_higgs_candidate"])[NUMPY_LIB.where( fatjets.offsets<len(best_higgs_candidate) )] ] = True
 	#    best_higgs_candidate[ (fatjets.offsets[:-1] + indices["best_higgs_candidate"])[NUMPY_LIB.where( fatjets.offsets<len(best_higgs_candidate) )] ] &= nhiggs.astype(NUMPY_LIB.bool)[NUMPY_LIB.where( fatjets.offsets<len(best_higgs_candidate) )] # to avoid removing the leading fatjet in events with no higgs candidate
 
+		good_jets_nohiggs = good_jets & jets[good_jets].p4.match(fatjets[good_fatjets].p4, matchfunc=pass_dr, dr=1.2)			# To understand whether the selection has to be applied on the leading jet only
+		#good_jets_nohiggs = jets[good_jets].p4[:,0].delta_r(fatjets[good_fatjets].p4) > 1.2
+		#good_jets_nohiggs = good_jets & ha.mask_deltar_first(jets, good_jets, fatjets, good_fatjets, 1.2, indices['leading'])
+		bjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
+		nonbjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) < parameters["btagging_WP"])
+
+
 		######################################################
 
 		cut = (muons.counts == 1) & (jets.counts >= 2)
 		cut_goodmuons = cut & good_muons
+		cut_goodjets = cut & good_jets
 		#selected_events = events[cut]
 		#candidate_w = muons.p4[cut].cross(METp4[cut])
 		candidate_w = (muons.p4[cut]).cross(METp4[cut])
@@ -134,6 +154,16 @@ class ttHbb(processor.ProcessorABC):
 			dataset=dataset,
 			pt=muons[cut_goodmuons].pt.flatten(),
 			eta=muons[cut_goodmuons].eta.flatten(),
+		)
+		output["jets"].fill(
+			dataset=dataset,
+			pt=jets[cut].pt.flatten(),
+			eta=jets[cut].eta.flatten(),
+		)
+		output["good_jets"].fill(
+			dataset=dataset,
+			pt=jets[cut_goodjets].pt.flatten(),
+			eta=jets[cut_goodjets].eta.flatten(),
 		)
 
 		return output
@@ -161,12 +191,23 @@ if __name__ == "__main__":
 	#parser.add_argument('filenames', nargs=argparse.REMAINDER)
 	args = parser.parse_args()
 
+	"""
 	samples = {
 		'ttHbb': [
 			"root://xrootd-cms.infn.it//store/user/algomez/tmpFiles/ttH/ttHTobb_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/ttHTobb_nanoAODPostProcessor_2017_v03/201009_121211/0000/nano_postprocessed_18.root",
 		],
 		'tt semileptonic': [
 			"root://xrootd-cms.infn.it//store/user/algomez/tmpFiles/ttH/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/TTToSemiLeptonic_nanoAODPostProcessor_2017_v03/200903_113849/0000/nano_postprocessed_97.root"
+		]
+	}
+	"""
+
+	samples = {
+		'ttHbb': [
+			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_18_ttHbb.root",
+		],
+		'tt semileptonic': [
+			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_97_tt_semileptonic.root"
 		]
 	}
 
@@ -194,9 +235,20 @@ if __name__ == "__main__":
 	ax.figure.savefig(plot_dir + "eta_muons.png", format="png")
 	plt.close(ax.figure)
 	ax = hist.plot1d(result['good_muons'].sum('eta'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "pt_goodmuona.png", format="png")
+	ax.figure.savefig(plot_dir + "pt_goodmuons.png", format="png")
 	plt.close(ax.figure)
 	ax = hist.plot1d(result['good_muons'].sum('pt'), overlay='dataset')
 	ax.figure.savefig(plot_dir + "eta_goodmuons.png", format="png")
 	plt.close(ax.figure)
-	
+	ax = hist.plot1d(result['jets'].sum('eta'), overlay='dataset')
+	ax.figure.savefig(plot_dir + "pt_jets.png", format="png")
+	plt.close(ax.figure)
+	ax = hist.plot1d(result['jets'].sum('pt'), overlay='dataset')
+	ax.figure.savefig(plot_dir + "eta_jets.png", format="png")
+	plt.close(ax.figure)
+	ax = hist.plot1d(result['good_jets'].sum('eta'), overlay='dataset')
+	ax.figure.savefig(plot_dir + "pt_goodjets.png", format="png")
+	plt.close(ax.figure)
+	ax = hist.plot1d(result['good_jets'].sum('pt'), overlay='dataset')
+	ax.figure.savefig(plot_dir + "eta_goodjets.png", format="png")
+	plt.close(ax.figure)
