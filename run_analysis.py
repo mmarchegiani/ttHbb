@@ -7,11 +7,12 @@ from coffea.analysis_objects import JaggedCandidateArray
 import matplotlib.pyplot as plt
 import numpy as np
 
-from lib_analysis import lepton_selection, jet_selection, pass_dr
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection
 from definitions_analysis import parameters, histogram_settings
 
 class ttHbb(processor.ProcessorABC):
 	def __init__(self):
+		#self.sample = sample
 		self._accumulator = processor.dict_accumulator({
 			"sumw": processor.defaultdict_accumulator(float),
 			"mass": hist.Hist(
@@ -43,6 +44,14 @@ class ttHbb(processor.ProcessorABC):
 				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['leading_jet_pt'])),
 				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['leading_jet_eta'])),
 			),
+			"njets": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("njets", "$N_{jets}$", np.linspace(*histogram_settings['njets'])),
+				hist.Bin("ngoodjets", "$N_{good_jets}$", np.linspace(*histogram_settings['ngoodjets'])),
+				#hist.Bin("ngoodjets_nohiggs", "$N_{nohiggs}$", np.linspace(*histogram_settings['ngoodjets'])),
+				hist.Bin("nnonbjets", "$N_{nonbjets}$", np.linspace(*histogram_settings['ngoodjets'])),
+			),
 		})
 
 	@property
@@ -65,6 +74,7 @@ class ttHbb(processor.ProcessorABC):
 		Flag = events.Flag
 		run = events.run
 		luminosityBlock = events.luminosityBlock
+		HLT = events.HLT
 		if is_mc:
 			genparts = events.GenPart
 
@@ -80,6 +90,7 @@ class ttHbb(processor.ProcessorABC):
 		muons.p4 = JaggedCandidateArray.candidatesfromcounts(muons.counts, pt=muons.pt.content, eta=muons.eta.content, phi=muons.phi.content, mass=muons.mass.content)
 		electrons.p4 = JaggedCandidateArray.candidatesfromcounts(electrons.counts, pt=electrons.pt.content, eta=electrons.eta.content, phi=electrons.phi.content, mass=electrons.mass.content)
 		jets.p4 = JaggedCandidateArray.candidatesfromcounts(jets.counts, pt=jets.pt.content, eta=jets.eta.content, phi=jets.phi.content, mass=jets.mass.content)
+		fatjets.p4 = JaggedCandidateArray.candidatesfromcounts(fatjets.counts, pt=fatjets.pt.content, eta=fatjets.eta.content, phi=fatjets.phi.content, mass=fatjets.mass.content)
 		METp4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET.pt), pt=MET.pt, eta=np.zeros_like(MET.pt), phi=MET.phi, mass=np.zeros_like(MET.pt))
 		
 		"""
@@ -87,11 +98,7 @@ class ttHbb(processor.ProcessorABC):
 			obj.masks = {}
 			obj.masks['all'] = np.ones_like(obj.flatten(), dtype=np.bool)
 		"""
-		indices = {
-		"leading"    : np.zeros(nEvents, dtype=np.int32),
-		"subleading" : np.ones(nEvents, dtype=np.int32)
-		}
-
+		
 		mask_events = np.ones(nEvents, dtype=np.bool)
 
 		# apply event cleaning and  PV selection
@@ -112,24 +119,75 @@ class ttHbb(processor.ProcessorABC):
 		good_muons, veto_muons = lepton_selection(muons, parameters["muons"], args.year)
 		good_electrons, veto_electrons = lepton_selection(electrons, parameters["electrons"], args.year)
 		good_jets = jet_selection(jets, muons, (good_muons|veto_muons), parameters["jets"]) & jet_selection(jets, electrons, (good_electrons|veto_electrons), parameters["jets"])
-	#    good_jets = jet_selection(jets, muons, (veto_muons | good_muons), parameters["jets"]) & jet_selection(jets, electrons, (veto_electrons | good_electrons) , parameters["jets"])
+#	    good_jets = jet_selection(jets, muons, (veto_muons | good_muons), parameters["jets"]) & jet_selection(jets, electrons, (veto_electrons | good_electrons) , parameters["jets"])
 		bjets_resolved = good_jets & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
 		good_fatjets = jet_selection(fatjets, muons, good_muons, parameters["fatjets"]) & jet_selection(fatjets, electrons, good_electrons, parameters["fatjets"])
-	#    good_fatjets = jet_selection(fatjets, muons, (veto_muons | good_muons), parameters["fatjets"]) & jet_selection(fatjets, electrons, (veto_electrons | good_electrons), parameters["fatjets"]) #FIXME remove vet_leptons
+#	    good_fatjets = jet_selection(fatjets, muons, (veto_muons | good_muons), parameters["fatjets"]) & jet_selection(fatjets, electrons, (veto_electrons | good_electrons), parameters["fatjets"]) #FIXME remove vet_leptons
 
-	#    higgs_candidates = good_fatjets & (fatjets.pt > 250)
-	#    nhiggs = ha.sum_in_offsets(fatjets, higgs_candidates, mask_events, fatjets.masks["all"], NUMPY_LIB.int8)
-	#    indices["best_higgs_candidate"] = ha.index_in_offsets(fatjets.pt, fatjets.offsets, 1, mask_events, higgs_candidates)
-	#    best_higgs_candidate = NUMPY_LIB.zeros_like(higgs_candidates)
-	#    best_higgs_candidate[ (fatjets.offsets[:-1] + indices["best_higgs_candidate"])[NUMPY_LIB.where( fatjets.offsets<len(best_higgs_candidate) )] ] = True
-	#    best_higgs_candidate[ (fatjets.offsets[:-1] + indices["best_higgs_candidate"])[NUMPY_LIB.where( fatjets.offsets<len(best_higgs_candidate) )] ] &= nhiggs.astype(NUMPY_LIB.bool)[NUMPY_LIB.where( fatjets.offsets<len(best_higgs_candidate) )] # to avoid removing the leading fatjet in events with no higgs candidate
-
-		good_jets_nohiggs = good_jets & jets[good_jets].p4.match(fatjets[good_fatjets].p4, matchfunc=pass_dr, dr=1.2)			# To understand whether the selection has to be applied on the leading jet only
-		#good_jets_nohiggs = jets[good_jets].p4[:,0].delta_r(fatjets[good_fatjets].p4) > 1.2
-		#good_jets_nohiggs = good_jets & ha.mask_deltar_first(jets, good_jets, fatjets, good_fatjets, 1.2, indices['leading'])
+		good_jets_nohiggs = good_jets & jet_nohiggs_selection(jets, fatjets, good_fatjets, 1.2)
 		bjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
 		nonbjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) < parameters["btagging_WP"])
 
+		# apply basic event selection -> individual categories cut later
+		nmuons         = muons[mask_events,:][good_muons].counts
+		nelectrons     = electrons[mask_events,:][good_electrons].counts
+		nleps          = nmuons + nelectrons
+		lepton_veto    = muons[mask_events,:][veto_muons].counts + electrons[mask_events,:][veto_electrons].counts
+		njets_raw      = jets[mask_events,:].counts
+		njets          = jets[mask_events,:][nonbjets].counts
+		ngoodjets      = jets[mask_events,:][good_jets].counts
+		btags          = jets[mask_events,:][bjets].counts
+		btags_resolved = jets[mask_events,:][bjets_resolved].counts
+		nfatjets       = fatjets[mask_events,:][good_fatjets].counts
+		#nhiggs         = fatjets[mask_events,:][higgs_candidates].counts
+
+		# trigger logic
+		trigger_el = (nleps==1) & (nelectrons==1)
+		trigger_mu = (nleps==1) & (nmuons==1)
+		if args.year.startswith('2016'):
+			trigger_el = trigger_el & HLT.Ele27_WPTight_Gsf
+			trigger_mu = trigger_mu & (HLT.IsoMu24 | HLT.IsoTkMu24)
+		elif args.year.startswith('2017'):
+			#trigger = (HLT.Ele35_WPTight_Gsf | HLT.Ele28_eta2p1_WPTight_Gsf_HT150 | HLT.IsoMu27 | HLT.IsoMu24_eta2p1) #FIXME for different runs
+			if args.sample.endswith(('2017B','2017C')):
+				trigger_tmp = HLT.Ele32_WPTight_Gsf_L1DoubleEG & any([getattr(HLT, 'L1_SingleEG{n}er2p5') for n in (10,15,26,34,36,38,40,42,45,8)])
+			else:
+				trigger_tmp = HLT.Ele32_WPTight_Gsf
+			trigger_el = trigger_el & (trigger_tmp | HLT.Ele28_eta2p1_WPTight_Gsf_HT150)
+			trigger_mu = trigger_mu & HLT.IsoMu27
+		elif args.year.startswith('2018'):
+			trigger = (HLT.Ele32_WPTight_Gsf | HLT.Ele28_eta2p1_WPTight_Gsf_HT150 | HLT.IsoMu24 )
+			trigger_el = trigger_el & (HLT.Ele32_WPTight_Gsf | HLT.Ele28_eta2p1_WPTight_Gsf_HT150)
+			trigger_mu = trigger_mu & HLT.IsoMu24
+		if "SingleMuon" in args.sample: trigger_el = np.zeros(nEvents, dtype=np.bool)
+		if "SingleElectron" in args.sample: trigger_mu = np.zeros(nEvents, dtype=np.bool)
+		mask_events = mask_events & (trigger_el | trigger_mu)
+
+		# for reference, this is the selection for the resolved analysis
+		mask_events_res = mask_events & (nleps == 1) & (lepton_veto == 0) & (ngoodjets >= 4) & (btags_resolved > 2) & (MET.pt > 20)
+		# apply basic event selection
+		#mask_events_higgs = mask_events & (nleps == 1) & (MET.pt > 20) & (nhiggs > 0) & (njets > 1)  # & np.invert( (njets >= 4) & (btags >=2) ) & (lepton_veto == 0)
+		mask_events_boost = mask_events & (nleps == 1) & (lepton_veto == 0) & (MET.pt > parameters['met']) & (nfatjets > 0) & (btags >= parameters['btags']) # & (btags_resolved < 3)# & (njets > 1)  # & np.invert( (njets >= 4)  )
+
+		"""
+		# calculate basic variables
+		mask_events = mask_events_res | mask_events_boost
+		leading_jet_pt        = jets.pt[nonbjets][mask_events,0]
+		#leading_jet_pt        = ha.get_in_offsets(jets.pt, jets.offsets, indices['leading'], mask_events, nonbjets)
+		leading_jet_eta       = ha.get_in_offsets(jets.eta, jets.offsets, indices['leading'], mask_events, nonbjets)
+		leading_fatjet_SDmass = ha.get_in_offsets(fatjets.msoftdrop, fatjets.offsets, indices['leading'], mask_events, good_fatjets)
+		leading_fatjet_pt     = ha.get_in_offsets(fatjets.pt, fatjets.offsets, indices['leading'], mask_events, good_fatjets)
+		leading_fatjet_eta    = ha.get_in_offsets(fatjets.eta, fatjets.offsets, indices['leading'], mask_events, good_fatjets)
+		leading_lepton_pt     = NUMPY_LIB.maximum(ha.get_in_offsets(muons.pt, muons.offsets, indices["leading"], mask_events, good_muons), ha.get_in_offsets(electrons.pt, electrons.offsets, indices["leading"], mask_events, good_electrons))
+		leading_lepton_eta    = NUMPY_LIB.maximum(ha.get_in_offsets(muons.eta, muons.offsets, indices["leading"], mask_events, good_muons), ha.get_in_offsets(electrons.eta, electrons.offsets, indices["leading"], mask_events, good_electrons))
+
+		leading_fatjet_rho    = NUMPY_LIB.zeros_like(leading_lepton_pt)
+		leading_fatjet_rho[mask_events] = NUMPY_LIB.log( leading_fatjet_SDmass[mask_events]**2 / leading_fatjet_pt[mask_events]**2 )
+
+		lead_lep_p4        = select_lepton_p4(muons, good_muons, electrons, good_electrons, indices["leading"], mask_events)
+		leading_fatjet_phi = ha.get_in_offsets(fatjets.phi, fatjets.offsets, indices['leading'], mask_events, good_fatjets)
+		deltaRHiggsLepton  = ha.calc_dr(lead_lep_p4.phi, lead_lep_p4.eta, leading_fatjet_phi, leading_fatjet_eta, mask_events)
+		"""
 
 		######################################################
 
@@ -165,6 +223,13 @@ class ttHbb(processor.ProcessorABC):
 			pt=jets[cut_goodjets].pt.flatten(),
 			eta=jets[cut_goodjets].eta.flatten(),
 		)
+		output["njets"].fill(
+			dataset=dataset,
+			njets=njets_raw,
+			ngoodjets=ngoodjets,
+			#ngoodjets_nohiggs=jets[mask_events,:][good_jets_nohiggs].counts,
+			nnonbjets=njets,
+		)
 
 		return output
 
@@ -182,15 +247,32 @@ if __name__ == "__main__":
 	#parser.add_argument('--outtag', action='store', help='outtag added to output file', type=str, default="")
 	#parser.add_argument('--version', action='store', help='tag added to the output directory', type=str, default='')
 	#parser.add_argument('--filelist', action='store', help='List of files to load', type=str, default=None, required=False)
-	#parser.add_argument('--sample', action='store', help='sample name', type=str, default=None, required=True)
+	parser.add_argument('--sample', action='store', help='sample name', type=str, default=None, required=True)
 	#parser.add_argument('--categories', nargs='+', help='categories to be processed (default: sl_jge4_tge2)', default="sl_jge4_tge2")
 	#parser.add_argument('--boosted', action='store_true', help='Flag to include boosted objects', default=False)
 	parser.add_argument('--year', action='store', choices=['2016', '2017', '2018'], help='Year of data/MC samples', default='2017')
-	#parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
+	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
 	#parser.add_argument('--corrections', action='store_true', help='Flag to include corrections')
 	#parser.add_argument('filenames', nargs=argparse.REMAINDER)
 	args = parser.parse_args()
 
+	from definitions_analysis import parameters, eraDependentParameters, samples_info
+	parameters.update(eraDependentParameters[args.year])
+	if args.parameters is not None:
+		if len(args.parameters)%2 is not 0:
+			raise Exception('incomplete parameters specified, quitting.')
+		for p,v in zip(args.parameters[::2], args.parameters[1::2]):
+			try: parameters[p] = type(parameters[p])(v) #convert the string v to the type of the parameter already in the dictionary
+			except: print(f'invalid parameter specified: {p} {v}')
+
+	"""
+	if "Single" in args.sample:
+		is_mc = False
+		lumimask = LumiMask(parameters["lumimask"])
+	else:
+		is_mc = True
+		lumimask = None
+	"""
 	"""
 	samples = {
 		'ttHbb': [
@@ -211,44 +293,36 @@ if __name__ == "__main__":
 		]
 	}
 
+	MyProcessor = ttHbb()
+	#MyProcessor = ttHbb(sample=args.sample)
+
 	print("Running uproot job...")
 	result = processor.run_uproot_job(
 		samples,
 		"Events",
-		ttHbb(),
+		MyProcessor,
 		processor.futures_executor,
 		{"nano": True, "workers": 10},
-	    chunksize=30000,
-	    maxchunks=6,
+		chunksize=30000,
+		maxchunks=6,
 	)
 
 	plot_dir = "plots/"
+	histos = ["pt_muons.png", "eta_muons.png", "pt_goodmuons.png", "eta_goodmuons.png", "pt_jets.png", "eta_jets.png", "pt_goodjets.png", "eta_goodjets.png",
+				 "njets.png", "ngoodjets.png", "nnonbjets.png"]
+	histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets']
+	integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets']]
+	#integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ('ngoodjets', 'ngoodjets_nohiggs')]
 	if not os.path.exists(plot_dir):
 		os.makedirs(plot_dir)
+	for (i, histo) in enumerate(histos):
+		if histo in ["njets.png", "ngoodjets.png", "nnonbjets.png"]:
+			ax = hist.plot1d(result[histo_names[i]].sum(*integrateover[i]), overlay='dataset')
+		else:
+			ax = hist.plot1d(result[histo_names[i]].sum(integrateover[i]), overlay='dataset')
+		ax.figure.savefig(plot_dir + histo, format="png")
+		plt.close(ax.figure)
+
 	ax = hist.plot1d(result['mass'], overlay='dataset')
 	ax.figure.savefig(plot_dir + "mass_w_visible.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['muons'].sum('eta'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "pt_muons.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['muons'].sum('pt'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "eta_muons.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['good_muons'].sum('eta'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "pt_goodmuons.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['good_muons'].sum('pt'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "eta_goodmuons.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['jets'].sum('eta'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "pt_jets.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['jets'].sum('pt'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "eta_jets.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['good_jets'].sum('eta'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "pt_goodjets.png", format="png")
-	plt.close(ax.figure)
-	ax = hist.plot1d(result['good_jets'].sum('pt'), overlay='dataset')
-	ax.figure.savefig(plot_dir + "eta_goodjets.png", format="png")
 	plt.close(ax.figure)

@@ -41,7 +41,6 @@ def pass_dr(pairs, dr):
     
     return deta**2 + dphi**2 > dr**2
 
-
 def jet_selection(jets, leps, mask_leps, cuts):
 
 	nested_mask = jets.p4.match(leps.p4[mask_leps], matchfunc=pass_dr, dr=cuts["dr"])
@@ -53,3 +52,10 @@ def jet_selection(jets, leps, mask_leps, cuts):
 		good_jets = good_jets & ( (jets.pt < 50) & (jets.puId >= cuts["puId"]) ) | (jets.pt >= 50)
 
 	return good_jets
+
+def jet_nohiggs_selection(jets, fatjets, mask_fatjets, dr=1.2):
+	
+	nested_mask = jets.p4.match(fatjets.p4[mask_fatjets,0], matchfunc=pass_dr, dr=dr)
+	jets_pass_dr = nested_mask.all()
+
+	return jets_pass_dr
