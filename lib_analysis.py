@@ -35,6 +35,7 @@ def lepton_selection(leps, cuts, year):
 	return good_leps, veto_leps
 
 def calc_dr2(pairs):
+	
 	deta = pairs.i0.eta - pairs.i1.eta
 	dphi = pairs.i0.phi - pairs.i1.phi
 	
@@ -42,9 +43,9 @@ def calc_dr2(pairs):
 
 def calc_dr(objects1, objects2):
 
-	pairs = objects1.p4.cross(objects2.p4)
+	pairs = objects1.cross(objects2)
 
-	return np.sqrt(calc_dr2(pairs))
+	return ak.from_iter(np.sqrt(calc_dr2(pairs)))
 
 def pass_dr(pairs, dr):
 
@@ -86,6 +87,14 @@ def get_leading_mask(mask_events, mask_objects):
 	return mask_events & mask_leading
 """
 
+def get_leading_value(var1, var2):
+
+	firsts1 = ak.firsts(var1)
+	firsts2 = ak.firsts(var2)
+
+	return ak.where(firsts1 != None, firsts1, firsts2)
+
+"""
 def get_leading_value(objects, var, mask_events, mask_objects):
 
 	good_objects = objects[mask_objects]
@@ -95,3 +104,4 @@ def get_leading_value(objects, var, mask_events, mask_objects):
 	leading_values[mask_nonzero] = good_objects[var][mask_nonzero][:,0]
 
 	return leading_values
+"""
