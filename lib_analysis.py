@@ -2,6 +2,7 @@ import argparse
 
 #from coffea import hist, processor
 #from coffea.analysis_objects import JaggedCandidateArray
+import awkward1 as ak
 from awkward.array.jagged import JaggedArray
 import numpy as np
 import math
@@ -92,7 +93,7 @@ def get_leading_value(var1, var2):
 	firsts1 = ak.firsts(var1)
 	firsts2 = ak.firsts(var2)
 
-	return ak.where(firsts1 != None, firsts1, firsts2)
+	return ak.where(ak.is_none(firsts1), firsts2, firsts1)
 
 """
 def get_leading_value(objects, var, mask_events, mask_objects):
