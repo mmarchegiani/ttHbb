@@ -9,8 +9,8 @@ from coffea.analysis_objects import JaggedCandidateArray
 import matplotlib.pyplot as plt
 import numpy as np
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value, calc_dr
-from definitions_analysis import parameters, histogram_settings
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value
+from definitions_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
 	def __init__(self):
@@ -67,13 +67,20 @@ class ttHbb(processor.ProcessorABC):
 				hist.Bin("pt", "$p^{T}_{H}$ [GeV]", np.linspace(*histogram_settings['leadAK8JetPt'])),
 				hist.Bin("deltaR", "$\Delta R_{H,\ell}$", np.linspace(*histogram_settings['deltaRHiggsLepton'])),
 			),
+			"higgs_mass": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("mass", "$M_{H}$ [GeV]", np.linspace(*histogram_settings['leadAK8JetMass'])),
+				hist.Bin("rho", "${\{rho}}_{H} $", np.linspace(*histogram_settings['leadAK8JetRho'])),
+			),
+
 		})
 
 	@property
 	def accumulator(self):
 		return self._accumulator
 
-	def process(self, events, parameters=parameters, samples_info={}, is_mc=True, lumimask=None, cat=False, boosted=False, uncertainty=None, uncertaintyName=None, parametersName=None, extraCorrection=None):
+	def process(self, events, parameters=parameters, samples_info=samples_info, is_mc=True, lumimask=None, cat=False, boosted=False, uncertainty=None, uncertaintyName=None, parametersName=None, extraCorrection=None):
 		output = self.accumulator.identity()
 		dataset=events.metadata["dataset"]
 		nEvents = events.event.size
@@ -90,6 +97,7 @@ class ttHbb(processor.ProcessorABC):
 		run = events.run
 		luminosityBlock = events.luminosityBlock
 		HLT = events.HLT
+		genWeight = events.genWeight
 		if is_mc:
 			genparts = events.GenPart
 
@@ -191,39 +199,45 @@ class ttHbb(processor.ProcessorABC):
 		events["GoodJet"]     = jets[nonbjets]
 		events["GoodFatJet"]  = fatjets[good_fatjets]
 		good_events           = events[mask_events]
-		
-		#print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-		#print(muons[good_muons].pt)
-		#print(good_events.GoodMuon.pt)
-		#print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 		# calculate basic variables
-		leading_jet_pt        = awkward1.firsts(good_events.GoodJet.pt)
-		leading_jet_eta       = awkward1.firsts(good_events.GoodJet.eta)
-		leading_fatjet_SDmass = awkward1.firsts(good_events.GoodFatJet.msoftdrop)
-		leading_fatjet_pt     = awkward1.firsts(good_events.GoodFatJet.pt)
-		leading_fatjet_eta    = awkward1.firsts(good_events.GoodFatJet.eta)
-		leading_fatjet_phi    = awkward1.firsts(good_events.GoodFatJet.phi)
-		leading_fatjet_mass   = awkward1.firsts(good_events.GoodFatJet.mass)
-		leading_lepton_pt     = get_leading_value(good_events.GoodMuon.pt, good_events.GoodElectron.pt)
-		leading_lepton_eta    = get_leading_value(good_events.GoodMuon.eta, good_events.GoodElectron.eta)
-		leading_lepton_phi    = get_leading_value(good_events.GoodMuon.phi, good_events.GoodElectron.phi)
-		leading_lepton_mass   = get_leading_value(good_events.GoodMuon.mass,good_events.GoodElectron.mass)
-		leading_fatjet_rho    = awkward1.from_iter( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
+		leading_jet_pt         = awkward1.firsts(good_events.GoodJet.pt)
+		leading_jet_eta        = awkward1.firsts(good_events.GoodJet.eta)
+		leading_fatjet_SDmass  = awkward1.firsts(good_events.GoodFatJet.msoftdrop)
+		leading_fatjet_pt      = awkward1.firsts(good_events.GoodFatJet.pt)
+		leading_fatjet_eta     = awkward1.firsts(good_events.GoodFatJet.eta)
+		leading_fatjet_phi     = awkward1.firsts(good_events.GoodFatJet.phi)
+		leading_fatjet_mass    = awkward1.firsts(good_events.GoodFatJet.mass)
+		leading_lepton_pt      = get_leading_value(good_events.GoodMuon.pt, good_events.GoodElectron.pt)
+		leading_lepton_eta     = get_leading_value(good_events.GoodMuon.eta, good_events.GoodElectron.eta)
+		leading_lepton_phi     = get_leading_value(good_events.GoodMuon.phi, good_events.GoodElectron.phi)
+		leading_lepton_mass    = get_leading_value(good_events.GoodMuon.mass,good_events.GoodElectron.mass)
+		leading_fatjet_rho     = awkward1.from_iter( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
 
-		mask_events_withFatJet= good_events.GoodFatJet.counts > 0
-		good_events_withFatJet= good_events[mask_events_withFatJet]
-		leading_lepton_p4     = JaggedCandidateArray.candidatesfromcounts(good_events_withFatJet.GoodElectron.counts + good_events_withFatJet.GoodMuon.counts, pt=leading_lepton_pt[mask_events_withFatJet], eta=leading_lepton_eta[mask_events_withFatJet], phi=leading_lepton_phi[mask_events_withFatJet], mass=leading_lepton_mass[mask_events_withFatJet])
-		leading_fatjet_p4     = JaggedCandidateArray.candidatesfromcounts(good_events_withFatJet.GoodFatJet.counts, pt=leading_fatjet_pt[mask_events_withFatJet], eta=leading_fatjet_eta[mask_events_withFatJet], phi=leading_fatjet_phi[mask_events_withFatJet], mass=leading_fatjet_mass[mask_events_withFatJet])
+		import awkward
+		mask_events_withFatJet = good_events.GoodFatJet.counts > 0
+		events["LeadingLepton"] = awkward.Table(pt=leading_lepton_pt, eta=leading_lepton_eta, phi=leading_lepton_phi, mass=leading_lepton_mass)
+		events["LeadingFatJet"] = awkward.Table(pt=leading_fatjet_pt[mask_events_withFatJet], eta=leading_fatjet_eta[mask_events_withFatJet], phi=leading_fatjet_phi[mask_events_withFatJet], mass=leading_fatjet_mass[mask_events_withFatJet], SDmass=leading_fatjet_SDmass[mask_events_withFatJet], rho=leading_fatjet_rho[mask_events_withFatJet])
 
-		#deltaRHiggsLepton     = good_events.GoodElectron.delta_r(good_events.GoodFatJet)
-		#deltaRHiggsMuon       = good_events_withFatjet.GoodFatJet.delta_r(good_events.Muon)
-		#deltaRHiggsElectron   = good_events_withFatjet.GoodFatJet.delta_r(good_events.Electron)
-		deltaRHiggsLepton     = calc_dr(leading_lepton_p4, leading_fatjet_p4)
+		deltaRHiggsLepton      = awkward1.firsts(good_events[mask_events_withFatJet].GoodFatJet.delta_r(events.LeadingLepton[mask_events_withFatJet]))
+		events.LeadingFatJet["deltaRHiggsLepton"] = deltaRHiggsLepton
 
-		#print(deltaRHiggsMuon)
-		#print(deltaRHiggsElectron)
-		print("dr: ", deltaRHiggsLepton)
+		# calculate weights for MC samples
+		weights = {}
+		weights["ones"] = np.ones(nEvents, dtype=np.float32)
+		weights["nominal"] = np.ones(nEvents, dtype=np.float32)
+
+		if is_mc:
+			weights["nominal"] = weights["nominal"] * genWeight * parameters["lumi"] * samples_info[sample]["XS"] / samples_info[sample]["ngen_weight"][args.year]
+		
+			# pu corrections
+			if 'puWeight' in scalars:
+				weights['pu'] = scalars['puWeight' if not uncertaintyName.startswith('puWeight') else uncertaintyName]
+			else:
+		#        weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
+				weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["Pileup_nTrueInt"])
+			weights["nominal"] = weights["nominal"] * weights['pu']
+
 
 		######################################################
 
@@ -231,8 +245,8 @@ class ttHbb(processor.ProcessorABC):
 		cut_goodmuons = cut & good_muons
 		cut_goodjets = cut & good_jets
 		#selected_events = events[cut]
-		#candidate_w = muons.p4[cut].cross(METp4[cut])
-		candidate_w = (muons.p4[cut]).cross(METp4[cut])
+		#candidate_w = muons.p4[cut].cross(MET.p4[cut])
+		candidate_w = (muons.p4[cut]).cross(MET.p4[cut])
 				
 		output["sumw"][dataset] += nEvents
 		output["mass"].fill(
@@ -268,13 +282,18 @@ class ttHbb(processor.ProcessorABC):
 		)
 		output["leptons"].fill(
 			dataset=dataset,
-			pt=leading_lepton_pt,
-			eta=leading_lepton_eta,
+			pt=events.LeadingLepton.pt.flatten(),
+			eta=events.LeadingLepton.eta.flatten(),
 		)
 		output["higgs"].fill(
 			dataset=dataset,
-			pt=leading_fatjet_pt,
-			deltaR=deltaRHiggsLepton,
+			pt=events.LeadingFatJet.pt.flatten(),
+			deltaR=events.LeadingFatJet.deltaRHiggsLepton.flatten(),
+		)
+		output["higgs_mass"].fill(
+			dataset=dataset,
+			mass=events.LeadingFatJet.SDmass.flatten(),
+			rho=events.LeadingFatJet.rho.flatten()
 		)
 
 		return output
@@ -356,9 +375,9 @@ if __name__ == "__main__":
 
 	plot_dir = "plots/"
 	histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png", "jets_pt.png", "jets_eta.png", "goodjets_pt.png", "goodjets_eta.png",
-				 "njets.png", "ngoodjets.png", "nnonbjets.png", "leptons_pt.png","leptons_eta.png"]
-	histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets', 'leptons', 'leptons', 'higgs', 'higgs']
-	integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'], 'eta', 'pt', 'pt', 'deltaRHiggsLepton']
+				 "njets.png", "ngoodjets.png", "nnonbjets.png", "leptons_pt.png","leptons_eta.png", "higgs_pt.png", "higgs_lepton_dr.png", "higgs_rho.png", "higgs_mass.png"]
+	histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets', 'leptons', 'leptons', 'higgs', 'higgs', 'higgs_mass', 'higgs_mass']
+	integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'], 'eta', 'pt', 'deltaR', 'pt', 'mass', 'rho']
 	#integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ('ngoodjets', 'ngoodjets_nohiggs')]
 	if not os.path.exists(plot_dir):
 		os.makedirs(plot_dir)
@@ -371,5 +390,5 @@ if __name__ == "__main__":
 		plt.close(ax.figure)
 
 	ax = hist.plot1d(result['mass'], overlay='dataset')
-	ax.figure.savefig(plot_dir + "w_visible_mass.png", format="png")
+	ax.figure.savefig(plot_dir + "w_visible_mass.png", dpi=720, format="png")
 	plt.close(ax.figure)
