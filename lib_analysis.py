@@ -1,11 +1,13 @@
 import argparse
 
-#from coffea import hist, processor
-#from coffea.analysis_objects import JaggedCandidateArray
 import awkward1 as ak
-from awkward.array.jagged import JaggedArray
 import numpy as np
 import math
+import uproot
+
+#from awkward.array.jagged import JaggedArray
+from coffea import hist
+#from coffea.analysis_objects import JaggedCandidateArray
 
 def lepton_selection(leps, cuts, year):
 
@@ -79,3 +81,44 @@ def get_leading_value(var1, var2):
 	firsts2 = ak.firsts(var2)
 
 	return ak.where(ak.is_none(firsts1), firsts2, firsts1)
+
+def load_puhist_target(filename):
+	fi = uproot.open(filename)
+
+	h = fi["pileup"]
+	edges = np.array(h.edges)
+	values_nominal = np.array(h.values)
+	values_nominal = values_nominal / np.sum(values_nominal)
+
+	h = fi["pileup_plus"]
+	values_up = np.array(h.values)
+	values_up = values_up / np.sum(values_up)
+
+	h = fi["pileup_minus"]
+	values_down = np.array(h.values)
+	values_down = values_down / np.sum(values_down)
+	return edges, (values_nominal, values_up, values_down)
+
+def remove_inf_nan(arr):
+    arr[np.isinf(arr)] = 0
+    arr[np.isnan(arr)] = 0
+    arr[arr < 0] = 0
+
+def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
+
+	pu_edges, (values_nom, values_up, values_down) = pu_corrections_target
+
+	src_pu_hist = hist.Hist("Pileup", coffea.hist.Bin("pu", "pu", pu_edges))
+	src_pu_hist.fill(pu=mc_nvtx, weight=weights)
+	norm = sum(src_pu_hist.values)
+	histo.scale(1./norm)
+	#src_pu_hist.contents = src_pu_hist.contents/norm
+	#src_pu_hist.contents_w2 = src_pu_hist.contents_w2/norm
+
+	ratio = values_nom / src_pu_hist.values
+#    ratio = values_nom / mc_values
+	remove_inf_nan(ratio)
+	#pu_weights = np.zeros_like(weights)
+	pu_weights = np.take(ratio, np.digitize(reco_nvtx, np.array(pu_edges)) - 1)
+
+	return pu_weights

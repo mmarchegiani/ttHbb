@@ -4,12 +4,16 @@ import sys
 
 #import awkward1 as ak
 import awkward1
-from coffea import processor, hist
-from coffea.analysis_objects import JaggedCandidateArray
 import matplotlib.pyplot as plt
 import numpy as np
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value
+from coffea import processor, hist
+from coffea.analysis_objects import JaggedCandidateArray
+from coffea.lumi_tools import LumiMask, LumiData
+from coffea.lookup_tools import extractor
+from coffea.btag_tools import BTagScaleFactor
+
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value, load_puhist_target
 from definitions_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
@@ -17,11 +21,6 @@ class ttHbb(processor.ProcessorABC):
 		#self.sample = sample
 		self._accumulator = processor.dict_accumulator({
 			"sumw": processor.defaultdict_accumulator(float),
-			"mass": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("mw_vis", "$M^{vis}_W$ [GeV]", np.linspace(*histogram_settings['lepWMass'])),
-			),
 			"muons": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
@@ -82,8 +81,9 @@ class ttHbb(processor.ProcessorABC):
 
 	def process(self, events, parameters=parameters, samples_info=samples_info, is_mc=True, lumimask=None, cat=False, boosted=False, uncertainty=None, uncertaintyName=None, parametersName=None, extraCorrection=None):
 		output = self.accumulator.identity()
-		dataset=events.metadata["dataset"]
+		dataset = events.metadata["dataset"]
 		nEvents = events.event.size
+		sample = dataset
 		#print("Processing %d %s events" % (nEvents, dataset))
 
 		muons = events.Muon
@@ -98,6 +98,7 @@ class ttHbb(processor.ProcessorABC):
 		luminosityBlock = events.luminosityBlock
 		HLT = events.HLT
 		genWeight = events.genWeight
+		puWeight = events.puWeight
 		if is_mc:
 			genparts = events.GenPart
 
@@ -231,47 +232,41 @@ class ttHbb(processor.ProcessorABC):
 			weights["nominal"] = weights["nominal"] * genWeight * parameters["lumi"] * samples_info[sample]["XS"] / samples_info[sample]["ngen_weight"][args.year]
 		
 			# pu corrections
-			if 'puWeight' in scalars:
-				weights['pu'] = scalars['puWeight' if not uncertaintyName.startswith('puWeight') else uncertaintyName]
-			else:
+			if puWeight is not None:
+				weights['pu'] = puWeight
+				#if not uncertaintyName.startswith('puWeight'):
+				#	weights['pu'] = puWeight
+				#else:
+				#	weights['pu'] = uncertaintyName
+			#else:
 		#        weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
-				weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["Pileup_nTrueInt"])
+				#weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["Pileup_nTrueInt"])
 			weights["nominal"] = weights["nominal"] * weights['pu']
 
 
 		######################################################
 
-		cut = (muons.counts == 1) & (jets.counts >= 2)
-		cut_goodmuons = cut & good_muons
-		cut_goodjets = cut & good_jets
-		#selected_events = events[cut]
-		#candidate_w = muons.p4[cut].cross(MET.p4[cut])
-		candidate_w = (muons.p4[cut]).cross(MET.p4[cut])
-				
+						
 		output["sumw"][dataset] += nEvents
-		output["mass"].fill(
-			dataset=dataset,
-			mw_vis=candidate_w.mass.flatten(),
-		)
 		output["muons"].fill(
 			dataset=dataset,
-			pt=muons[cut].pt.flatten(),
-			eta=muons[cut].eta.flatten(),
+			pt=muons.pt.flatten(),
+			eta=muons.eta.flatten(),
 		)
 		output["good_muons"].fill(
 			dataset=dataset,
-			pt=muons[cut_goodmuons].pt.flatten(),
-			eta=muons[cut_goodmuons].eta.flatten(),
+			pt=events.GoodMuon.pt.flatten(),
+			eta=events.GoodMuon.eta.flatten(),
 		)
 		output["jets"].fill(
 			dataset=dataset,
-			pt=jets[cut].pt.flatten(),
-			eta=jets[cut].eta.flatten(),
+			pt=jets.pt.flatten(),
+			eta=jets.eta.flatten(),
 		)
 		output["good_jets"].fill(
 			dataset=dataset,
-			pt=jets[cut_goodjets].pt.flatten(),
-			eta=jets[cut_goodjets].eta.flatten(),
+			pt=events.GoodJet.pt.flatten(),
+			eta=events.GoodJet.eta.flatten(),
 		)
 		output["njets"].fill(
 			dataset=dataset,
@@ -330,14 +325,24 @@ if __name__ == "__main__":
 			try: parameters[p] = type(parameters[p])(v) #convert the string v to the type of the parameter already in the dictionary
 			except: print(f'invalid parameter specified: {p} {v}')
 
-	"""
 	if "Single" in args.sample:
 		is_mc = False
 		lumimask = LumiMask(parameters["lumimask"])
 	else:
 		is_mc = True
 		lumimask = None
-	"""
+
+	if is_mc:
+		# add information needed for MC corrections
+		parameters["pu_corrections_target"] = load_puhist_target(parameters["pu_corrections_file"])
+		parameters["btag_SF_target"] = BTagScaleFactor(parameters["btag_SF_{}".format(parameters["btagging_algorithm"])], BTagScaleFactor.MEDIUM)
+		### this computes the lepton weights
+		ext = extractor()
+		print(parameters["corrections"])
+		for corr in parameters["corrections"]:
+			ext.add_weight_sets([corr])
+		ext.finalize()
+		evaluator = ext.make_evaluator()
 
 	"""
 	samples = {
@@ -351,10 +356,10 @@ if __name__ == "__main__":
 	"""
 
 	samples = {
-		'ttHbb': [
+		"ttHTobb": [
 			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_18_ttHbb.root",
 		],
-		'tt semileptonic': [
+		"TTToSemiLeptonic": [
 			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_97_tt_semileptonic.root"
 		]
 	}
@@ -388,7 +393,3 @@ if __name__ == "__main__":
 			ax = hist.plot1d(result[histo_names[i]].sum(integrateover[i]), overlay='dataset')
 		ax.figure.savefig(plot_dir + histo, format="png")
 		plt.close(ax.figure)
-
-	ax = hist.plot1d(result['mass'], overlay='dataset')
-	ax.figure.savefig(plot_dir + "w_visible_mass.png", dpi=720, format="png")
-	plt.close(ax.figure)
