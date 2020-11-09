@@ -110,6 +110,7 @@ dependencies:
     - wcwidth==0.2.5
     - webencodings==0.5.1
     - widgetsnbextension==3.5.1
+    - xxhash==2.0.0
     - zipp==3.3.1
 prefix: /afs/cern.ch/work/m/mmarcheg/.conda/envs/coffea
 
