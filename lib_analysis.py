@@ -83,6 +83,7 @@ def get_leading_value(var1, var2):
 	return ak.where(ak.is_none(firsts1), firsts2, firsts1)
 
 def load_puhist_target(filename):
+
 	fi = uproot.open(filename)
 
 	h = fi["pileup"]
@@ -100,10 +101,12 @@ def load_puhist_target(filename):
 	return edges, (values_nominal, values_up, values_down)
 
 def remove_inf_nan(arr):
-    arr[np.isinf(arr)] = 0
-    arr[np.isnan(arr)] = 0
-    arr[arr < 0] = 0
 
+	arr[np.isinf(arr)] = 0
+	arr[np.isnan(arr)] = 0
+	arr[arr < 0] = 0
+
+### PileUp weight
 def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
 
 	pu_edges, (values_nom, values_up, values_down) = pu_corrections_target
@@ -122,3 +125,38 @@ def compute_pu_weights(pu_corrections_target, weights, mc_nvtx, reco_nvtx):
 	pu_weights = np.take(ratio, np.digitize(reco_nvtx, np.array(pu_edges)) - 1)
 
 	return pu_weights
+
+# lepton scale factors
+def compute_lepton_weights(leps, evaluator, SF_list, lepton_eta=None, year=None):
+
+	lepton_pt = leps.pt
+	if lepton_eta is None:
+		lepton_eta = leps.eta
+	weights = np.ones(len(lepton_pt))
+
+	for SF in SF_list:
+		if SF.startswith('mu'):
+			if year=='2016':
+				if 'trigger' in SF:
+					x = lepton_pt
+					y = np.abs(lepton_eta)
+				else:
+					x = lepton_eta
+					y = lepton_pt
+			else:
+				x = lepton_pt
+				y = np.abs(lepton_eta)
+		elif SF.startswith('el'):
+			if 'trigger' in SF:
+				x = lepton_pt
+				y = lepton_eta
+			else:
+				x = lepton_eta
+				y = lepton_pt
+		else:
+			raise Exception(f'unknown SF name {SF}')
+		weights = weights*evaluator[SF](x, y)
+		#weights *= evaluator[SF](x, y)
+	
+	per_event_weights = ak.prod(weights, axis=1)
+	return per_event_weights

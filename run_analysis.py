@@ -13,7 +13,7 @@ from coffea.lumi_tools import LumiMask, LumiData
 from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value, load_puhist_target
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value, load_puhist_target, compute_lepton_weights
 from definitions_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
@@ -243,8 +243,29 @@ class ttHbb(processor.ProcessorABC):
 				#weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["Pileup_nTrueInt"])
 			weights["nominal"] = weights["nominal"] * weights['pu']
 
+			# lepton SF corrections
+			electron_weights = compute_lepton_weights(events.GoodElectron, evaluator, ["el_triggerSF", "el_recoSF", "el_idSF"], lepton_eta=(events.GoodElectron.deltaEtaSC + events.GoodElectron.eta))
+			muon_weights = compute_lepton_weights(events.GoodMuon, evaluator, ["mu_triggerSF", "mu_isoSF", "mu_idSF"], year=args.year)
+			weights['lepton']  = muon_weights * electron_weights
+			weights["nominal"] = weights["nominal"] * weights['lepton']
 
-		######################################################
+		mask_events = {
+		  'resolved' : mask_events_res,
+		  'basic'    : mask_events_boost
+		}
+		mask_events['2J']   = mask_events['basic'] & (njets>1)
+
+		#Ws reconstruction
+		#pznu = ha.METzCalculator(lead_lep_p4, METp4, mask_events['2J'])
+		#neutrinop4 = TLorentzVectorArray.from_cartesian(METp4.x, METp4.y, pznu, NUMPY_LIB.sqrt( METp4.x**2 + METp4.y**2 + pznu**2 ))
+		#lepW = lead_lep_p4 + neutrinop4
+
+		#hadW = hadronic_W(jets, nonbjets, lepW, mask_events['2J'])
+
+		#mask_events['2J2W'] = mask_events['2J'] & (hadW.mass>parameters['W']['min_mass']) & (hadW.mass<parameters['W']['max_mass']) & (lepW.mass>parameters['W']['min_mass']) & (lepW.mass<parameters['W']['max_mass'])
+
+
+######################################################
 
 						
 		output["sumw"][dataset] += nEvents
