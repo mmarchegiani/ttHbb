@@ -7,7 +7,7 @@ import uproot
 
 #from awkward.array.jagged import JaggedArray
 from coffea import hist
-#from coffea.analysis_objects import JaggedCandidateArray
+from coffea.analysis_objects import JaggedCandidateArray
 
 def lepton_selection(leps, cuts, year):
 
@@ -75,12 +75,16 @@ def jet_nohiggs_selection(jets, fatjets, mask_fatjets, dr=1.2):
 
 	return jets_pass_dr
 
-def get_leading_value(var1, var2):
+def get_leading_value(var1, var2=None, default=-999.9):
 
+	default = ak.from_iter(len(var1)*[default])
 	firsts1 = ak.firsts(var1)
-	firsts2 = ak.firsts(var2)
-
-	return ak.where(ak.is_none(firsts1), firsts2, firsts1)
+	if type(var2) is type(None):
+		return ak.where(ak.is_none(firsts1), default, firsts1)
+	else:
+		firsts2 = ak.firsts(var2)
+		leading = ak.where(ak.is_none(firsts1), firsts2, firsts1)
+		return ak.where(ak.is_none(leading), default, leading)
 
 def load_puhist_target(filename):
 
@@ -160,3 +164,64 @@ def compute_lepton_weights(leps, evaluator, SF_list, lepton_eta=None, year=None)
 	
 	per_event_weights = ak.prod(weights, axis=1)
 	return per_event_weights
+
+def METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_rows):
+	for i in range(len(tmpsol1)):
+		if not mask_rows[i]:
+			continue
+	if tmproot[i]<0: pznu[i] = - B[i]/(2*A[i])
+	else:
+		tmpsol1[i] = (-B[i] + np.sqrt(tmproot[i]))/(2.0*A[i])
+		tmpsol2[i] = (-B[i] - np.sqrt(tmproot[i]))/(2.0*A[i])
+		if (abs(tmpsol2[i]-pzlep[i]) < abs(tmpsol1[i]-pzlep[i])):
+			pznu[i] = tmpsol2[i]
+			#otherSol_ = tmpsol1
+		else:
+			pznu[i] = tmpsol1[i]
+			#otherSol_ = tmpsol2
+			#### if pznu is > 300 pick the most central root
+			if ( pznu[i] > 300. ):
+				if (abs(tmpsol1[i])<abs(tmpsol2[i]) ):
+					pznu[i] = tmpsol1[i]
+					#otherSol_ = tmpsol2
+				else:
+					pznu[i] = tmpsol2[i]
+					#otherSol_ = tmpsol1
+
+def METzCalculator(lepton, MET, mask_rows):
+	np.seterr(invalid='ignore') # to suppress warning from nonsense numbers in masked events
+	M_W = 80.4
+	M_lep = lepton.mass #.1056
+	elep = lepton.E
+	pxlep = lepton.x
+	pylep = lepton.y
+	pzlep = lepton.z
+	pxnu = MET.x
+	pynu = MET.y
+	pznu = 0
+
+	a = M_W*M_W - M_lep*M_lep + 2.0*pxlep*pxnu + 2.0*pylep*pynu
+	A = 4.0*(elep*elep - pzlep*pzlep)
+	#print(elep[np.isnan(A) & mask_rows], pzlep[np.isnan(A) & mask_rows])
+	B = -4.0*a*pzlep
+	C = 4.0*elep*elep*(pxnu*pxnu + pynu*pynu) - a*a
+	#print(a, A, B, C)
+	tmproot = B*B - 4.0*A*C
+
+	tmpsol1 = np.zeros_like(A) #(-B + np.sqrt(tmproot))/(2.0*A)
+	tmpsol2 = np.zeros_like(A) #(-B - np.sqrt(tmproot))/(2.0*A)
+	pznu = np.zeros(len(M_lep), dtype=np.float32)
+	METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_rows)
+
+	return pznu
+
+def hadronic_W(jets, lepWp4, mask_rows):
+
+	dijet = jets.choose(2)
+	#mass_diff = JaggedCandidateArray.fromcounts(jets.counts, content=abs(dijet.mass - lepWp4.mass.content).flatten())
+	mass_diff = ak.from_iter(abs(dijet.mass - lepWp4.mass.content))
+	print("mass_diff: ", mass_diff)
+	indices = ak.to_list(ak.argmin(mass_diff, axis=1, mask_identity=False))
+	hadW = dijet[(range(len(jets)), indices)]
+
+	return hadW
