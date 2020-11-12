@@ -264,15 +264,24 @@ class ttHbb(processor.ProcessorABC):
 		#Ws reconstruction
 		events.LeadingLepton["p4"] = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), pt=events.LeadingLepton.pt, eta=events.LeadingLepton.eta, phi=events.LeadingLepton.phi, mass=events.LeadingLepton.mass)
 		pznu = METzCalculator(events.LeadingLepton.p4.p4, MET.p4.p4, mask_events['2J'])
+		#neutrino_p4 = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), px=MET.p4.p4.x, py=MET.p4.p4.y, pz=pznu, energy=np.sqrt( MET.p4.p4.x**2 + MET.p4.p4.y**2 + pznu**2 ))
 		neutrino_p4 = TLorentzVectorArray.from_cartesian(MET.p4.p4.x, MET.p4.p4.y, pznu, np.sqrt( MET.p4.p4.x**2 + MET.p4.p4.y**2 + pznu**2 ))
 		leading_lepton_p4 = TLorentzVectorArray.from_ptetaphim(events.LeadingLepton.pt, events.LeadingLepton.eta, events.LeadingLepton.phi, events.LeadingLepton.mass)
+		#lepW = neutrino_p4.cross(events.LeadingLepton["p4"])
 		lepW = leading_lepton_p4 + neutrino_p4
+		#lepW = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), pt=lepW_vector.pt, eta=lepW_vector.eta, phi=lepW_vector.phi, mass=lepW_vector.mass)
+
 		good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(events.GoodJet.counts, pt=events.GoodJet.pt.content, eta=events.GoodJet.eta.content, phi=events.GoodJet.phi.content, mass=events.GoodJet.mass.content)
 
-		hadW = hadronic_W(good_jets_p4, lepW, mask_events['2J'])
+		hadW = hadronic_W(good_jets_p4, lepW)
+		#print(hadW.columns)
 
 		#mask_events['2J2W'] = mask_events['2J'] & (hadW.mass>parameters['W']['min_mass']) & (hadW.mass<parameters['W']['max_mass']) & (lepW.mass>parameters['W']['min_mass']) & (lepW.mass<parameters['W']['max_mass'])
+		mask_events['2J2W'] = mask_events['2J'] & (hadW.mass>parameters['W']['min_mass']) & (hadW.mass<parameters['W']['max_mass']) & (lepW.mass.content>parameters['W']['min_mass']) & (lepW.mass.content<parameters['W']['max_mass'])
 
+		#deltaR between objects
+		#deltaRlepWHiggs = ha.calc_dr(lepW.phi, lepW.eta, leading_fatjet_phi, leading_fatjet_eta, mask_events['2J2W'])
+		#deltaRhadWHiggs = ha.calc_dr(hadW.phi, hadW.eta, leading_fatjet_phi, leading_fatjet_eta, mask_events['2J2W'])
 
 ######################################################
 
@@ -373,7 +382,6 @@ if __name__ == "__main__":
 			ext.add_weight_sets([corr])
 		ext.finalize()
 		evaluator = ext.make_evaluator()
-
 
 	samples = {
 		"ttHTobb": [
