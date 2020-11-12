@@ -374,7 +374,7 @@ if __name__ == "__main__":
 		ext.finalize()
 		evaluator = ext.make_evaluator()
 
-	"""
+
 	samples = {
 		"ttHTobb": [
 			"root://xrootd-cms.infn.it//store/user/algomez/tmpFiles/ttH/ttHTobb_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/ttHTobb_nanoAODPostProcessor_2017_v03/201009_121211/0000/nano_postprocessed_18.root",
@@ -383,7 +383,7 @@ if __name__ == "__main__":
 			"root://xrootd-cms.infn.it//store/user/algomez/tmpFiles/ttH/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/TTToSemiLeptonic_nanoAODPostProcessor_2017_v03/200903_113849/0000/nano_postprocessed_97.root"
 		]
 	}
-	"""
+
 
 	samples = {
 		"ttHTobb": [

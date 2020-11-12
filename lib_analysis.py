@@ -218,10 +218,11 @@ def METzCalculator(lepton, MET, mask_rows):
 def hadronic_W(jets, lepWp4, mask_rows):
 
 	dijet = jets.choose(2)
-	#mass_diff = JaggedCandidateArray.fromcounts(jets.counts, content=abs(dijet.mass - lepWp4.mass.content).flatten())
-	mass_diff = ak.from_iter(abs(dijet.mass - lepWp4.mass.content))
-	print("mass_diff: ", mass_diff)
-	indices = ak.to_list(ak.argmin(mass_diff, axis=1, mask_identity=False))
+	mass_diff = JaggedCandidateArray.fromcounts(jets.counts, content=abs(dijet.mass - lepWp4.mass.content).flatten())
+	#mass_diff = ak.from_iter(abs(dijet.mass - lepWp4.mass.content))
+	#print("mass_diff: ", mass_diff)
+	indices = ak.to_list(ak.argmin(mass_diff, axis=1))
+	print(indices)
 	hadW = dijet[(range(len(jets)), indices)]
 
 	return hadW
