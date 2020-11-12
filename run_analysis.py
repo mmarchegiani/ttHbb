@@ -384,7 +384,7 @@ if __name__ == "__main__":
 		]
 	}
 
-
+	"""
 	samples = {
 		"ttHTobb": [
 			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_18_ttHbb.root",
@@ -393,6 +393,7 @@ if __name__ == "__main__":
 			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_97_tt_semileptonic.root"
 		]
 	}
+	"""
 
 	MyProcessor = ttHbb()
 	#MyProcessor = ttHbb(sample=args.sample)
