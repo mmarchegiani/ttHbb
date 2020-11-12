@@ -189,6 +189,7 @@ def METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_row
 					#otherSol_ = tmpsol1
 
 def METzCalculator(lepton, MET, mask_rows):
+
 	np.seterr(invalid='ignore') # to suppress warning from nonsense numbers in masked events
 	M_W = 80.4
 	M_lep = lepton.mass #.1056
@@ -221,8 +222,9 @@ def hadronic_W(jets, lepWp4, mask_rows):
 	mass_diff = JaggedCandidateArray.fromcounts(jets.counts, content=abs(dijet.mass - lepWp4.mass.content).flatten())
 	#mass_diff = ak.from_iter(abs(dijet.mass - lepWp4.mass.content))
 	#print("mass_diff: ", mass_diff)
-	indices = ak.to_list(ak.argmin(mass_diff, axis=1))
+	indices = ak.argmin(mass_diff, axis=1)
+	#indices = ak.to_list(ak.argmin(mass_diff, axis=1))
 	print(indices)
-	hadW = dijet[(range(len(jets)), indices)]
+	hadW = dijet[(range(len(mask_rows)), indices)]
 
 	return hadW

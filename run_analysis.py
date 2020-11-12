@@ -268,7 +268,7 @@ class ttHbb(processor.ProcessorABC):
 		leading_lepton_p4 = TLorentzVectorArray.from_ptetaphim(events.LeadingLepton.pt, events.LeadingLepton.eta, events.LeadingLepton.phi, events.LeadingLepton.mass)
 		lepW = leading_lepton_p4 + neutrino_p4
 		good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(events.GoodJet.counts, pt=events.GoodJet.pt.content, eta=events.GoodJet.eta.content, phi=events.GoodJet.phi.content, mass=events.GoodJet.mass.content)
-		
+
 		hadW = hadronic_W(good_jets_p4, lepW, mask_events['2J'])
 
 		#mask_events['2J2W'] = mask_events['2J'] & (hadW.mass>parameters['W']['min_mass']) & (hadW.mass<parameters['W']['max_mass']) & (lepW.mass>parameters['W']['min_mass']) & (lepW.mass<parameters['W']['max_mass'])
