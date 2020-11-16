@@ -44,13 +44,11 @@ def calc_dr2(pairs):
 	
 	return deta**2 + dphi**2
 
-"""
 def calc_dr(objects1, objects2):
 
 	pairs = objects1.cross(objects2)
 
 	return ak.from_iter(np.sqrt(calc_dr2(pairs)))
-"""
 
 def pass_dr(pairs, dr):
 
@@ -220,7 +218,9 @@ def hadronic_W(jets, lepWp4):
 
 	dijet = jets.choose(2)
 	dijet.add_attributes(mass_diff=abs(dijet.mass - lepWp4.mass.content))
-	min_mass_diff = ak.fill_none(ak.min(dijet.mass_diff, axis=1), value=9999.9)
+	min_akarray = ak.min(dijet.mass_diff, axis=1)
+	min_mass_diff = ak.fill_none(min_akarray, value=9999.9)
 	hadW = dijet[dijet.mass_diff <= min_mass_diff]
+	n_hadW = np.array(np.invert(ak.is_none(min_akarray)), dtype=int)
 
-	return hadW
+	return hadW, n_hadW
