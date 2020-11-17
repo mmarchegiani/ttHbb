@@ -17,61 +17,66 @@ from uproot_methods import TLorentzVectorArray
 from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
 from definitions_analysis import parameters, histogram_settings, samples_info
 
-var_names = [
-  'nleps'            ,
-  'njets'            ,
-  'ngoodjets'        ,
-  'btags'            ,
-  'btags_resolved'   ,
-  'nfatjets'         ,
-  'met'              ,
-  'leading_jet_pt'   ,
-  'leading_jet_eta'  ,
-  'leadAK8JetMass'   ,
-  'leadAK8JetPt'     ,
-  'leadAK8JetEta'    ,
-  'leadAK8JetHbb'    ,
-  'leadAK8JetTau21'  ,
-  'leadAK8JetRho'    ,
-  'lepton_pt'        ,
-  'lepton_eta'       ,
-  'hadWPt'           ,
-  'hadWEta'          ,
-  'hadWMass'         ,
-  'lepWPt'           ,
-  'lepWEta'          ,
-  'lepWMass'         ,
-  'deltaRlepWHiggs'  ,
-  'deltaRhadWHiggs'  ,
-  'deltaRHiggsLepton',
-  #'PV_npvsGood'
-]
-
-mask_events_list = [
-  'resolved',
-  'basic',
-  '2J',
-  '2J2W',
-  '2J2WdeltaR',
-  '2J2WdeltaR_Pass',
-  '2J2WdeltaR_Fail'
-]
-
-for m in mask_events_list:
-	if m=='resolved':
-		continue
-	mask_events_list.append(m+'_orthogonal')
-	mask_events_list.append(m+'_overlap')
-
-print(mask_events_list)
-
 class ttHbb(processor.ProcessorABC):
 	def __init__(self):
 		#self.sample = sample
+		self.var_names = [
+		  'nleps'            ,
+		  'njets'            ,
+		  'ngoodjets'        ,
+		  'btags'            ,
+		  'btags_resolved'   ,
+		  'nfatjets'         ,
+		  'met'              ,
+		  'leading_jet_pt'   ,
+		  'leading_jet_eta'  ,
+		  'leadAK8JetMass'   ,
+		  'leadAK8JetPt'     ,
+		  'leadAK8JetEta'    ,
+		  'leadAK8JetHbb'    ,
+		  'leadAK8JetTau21'  ,
+		  'leadAK8JetRho'    ,
+		  'lepton_pt'        ,
+		  'lepton_eta'       ,
+		  'hadWPt'           ,
+		  'hadWEta'          ,
+		  'hadWMass'         ,
+		  'lepWPt'           ,
+		  'lepWEta'          ,
+		  'lepWMass'         ,
+		  'deltaRlepWHiggs'  ,
+		  'deltaRhadWHiggs'  ,
+		  'deltaRHiggsLepton',
+		  #'PV_npvsGood',
+		  'weights_ones',
+		  'weights_nominal',
+		  'weights_pu',
+		  'weights_lepton',
+		]
+		self.mask_events_list = [
+		  'resolved',
+		  'basic',
+		  '2J',
+		  '2J2W',
+		  '2J2WdeltaR',
+		  '2J2WdeltaR_Pass',
+		  '2J2WdeltaR_Fail',
+		  'basic_orthogonal',
+		  '2J_orthogonal',
+		  '2J2W_orthogonal',
+		  '2J2WdeltaR_orthogonal',
+		  '2J2WdeltaR_Pass_orthogonal',
+		  '2J2WdeltaR_Fail_orthogonal',
+		  #'basic_overlap',
+		  #'2J_overlap',
+		  #'2J2W_overlap',
+		  #'2J2WdeltaR_overlap',
+		  #'2J2WdeltaR_Pass_overlap',
+		  #'2J2WdeltaR_Fail_overlap',
+		]
+
 		self._accumulator = processor.dict_accumulator({
 			"sumw": processor.defaultdict_accumulator(float),
-			#"hist_list_split": [],
-			#"hist_list": [],
 			"muons": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
@@ -123,6 +128,7 @@ class ttHbb(processor.ProcessorABC):
 				hist.Bin("rho", "${\{rho}}_{H} $", np.linspace(*histogram_settings['leadAK8JetRho'])),
 			),
 		})
+
 		vars_split = ['leadAK8JetMass', 'leadAK8JetRho']
 		ptbins = np.append( np.arange(250,600,50), [600, 1000, 5000] )
 		for var_name in vars_split:
@@ -132,27 +138,25 @@ class ttHbb(processor.ProcessorABC):
 					for r in ['Pass','Fail']:
 						for o in ['','_orthogonal']:
 							mask_name = f'{m}_{r}{o}'
-							if not mask_name in mask_events_list: continue
+							if not mask_name in self.mask_events_list: continue
 							hist_name = f'hist_{var_name}_{mask_name}_pt{ptbins[ipt]}to{ptbins[ipt+1]}'
-							#self._accumulator["hist_list_split"].append(hist_name)
 							self._accumulator.add(processor.dict_accumulator({hist_name : hist.Hist("entries",
 														   					  hist.Cat("dataset", "Dataset"),
-														   					  hist.Bin(var_name, var_name, np.linspace( *histogram_settings[var_name] ) ) ) } ) )
+														   					  hist.Bin("values", var_name, np.linspace( *histogram_settings[var_name] ) ) ) } ) )
 
 		#for wn,w in weights.items():
 		for wn in ['nominal']:
 			if wn != 'nominal': continue
 			#ret[f'nevts_overlap{weight_name}'] = Histogram( [sum(weights[w]), sum(weights[w][mask_events['2J2WdeltaR']]), sum(weights[w][mask_events['resolved']]), sum(weights[w][mask_events['overlap']])], 0,0 )
-			for mask_name in mask_events_list:
+			for mask_name in self.mask_events_list:
 				if not 'deltaR' in mask_name: continue
-				for var_name in var_names:
+				for var_name in self.var_names:
 					#if (not is_mc) and ('Pass' in mask_name) and (var_name=='leadAK8JetMass') : continue
 					try:
 						hist_name = f'hist_{var_name}_{mask_name}_weights_{wn}'
-						#self._accumulator["hist_list"].append(hist_name)
 						self._accumulator.add(processor.dict_accumulator({hist_name : hist.Hist("entries",
 																 		  hist.Cat("dataset", "Dataset"),
-																 		  hist.Bin(var_name, var_name, np.linspace( *histogram_settings[var_name if not var_name.startswith('weights') else 'weights'] ) ) ) } ) )
+																 		  hist.Bin("values", var_name, np.linspace( *histogram_settings[var_name if not var_name.startswith('weights') else 'weights'] ) ) ) } ) )
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
 
@@ -305,8 +309,11 @@ class ttHbb(processor.ProcessorABC):
 
 		#good_events           = events[mask_events]
 		mask_events_withFatJet = events.GoodFatJet.counts > 0
-		deltaRHiggsLepton      = awkward1.firsts(events.GoodFatJet[mask_events_withFatJet].delta_r(events.LeadingLepton[mask_events_withFatJet]))
-		#deltaRHiggsLepton      = awkward1.firsts(good_events[mask_events_withFatJet].GoodFatJet.delta_r(events.LeadingLepton[mask_events_withFatJet]))
+		mask_events_withLepton = nleps > 0
+		leading_leptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withLepton, dtype=int), pt=leading_lepton_pt[mask_events_withLepton], eta=leading_lepton_eta[mask_events_withLepton], phi=leading_lepton_phi[mask_events_withLepton], mass=leading_lepton_mass[mask_events_withLepton])
+		higgs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withFatJet, dtype=int), pt=leading_fatjet_pt[mask_events_withFatJet], eta=leading_fatjet_eta[mask_events_withFatJet], phi=leading_fatjet_phi[mask_events_withFatJet], mass=leading_fatjet_mass[mask_events_withFatJet])
+		deltaRHiggsLepton      = calc_dr(leading_leptons, higgs)
+		#deltaRHiggsLepton      = awkward1.firsts(events.GoodFatJet[mask_events_withFatJet].delta_r(events.LeadingLepton[mask_events_withFatJet]))
 		events.LeadingFatJet["deltaRHiggsLepton"] = deltaRHiggsLepton
 
 		# calculate weights for MC samples
@@ -355,19 +362,19 @@ class ttHbb(processor.ProcessorABC):
 
 		hadW, n_hadW = hadronic_W(good_jets_p4, lepW)
 
+		#print(awkward1.any(lepW.mass>parameters['W']['min_mass'], axis=1))
 		#mask_events['2J2W'] = mask_events['2J'] & (hadW.mass>parameters['W']['min_mass']) & (hadW.mass<parameters['W']['max_mass']) & (lepW.mass>parameters['W']['min_mass']) & (lepW.mass<parameters['W']['max_mass'])
-		mask_events['2J2W'] = mask_events['2J'] & (hadW.mass>parameters['W']['min_mass']) & (hadW.mass<parameters['W']['max_mass']) & (lepW.mass.content>parameters['W']['min_mass']) & (lepW.mass.content<parameters['W']['max_mass'])
+		mask_events['2J2W'] = mask_events['2J'] & awkward1.any(hadW.mass>parameters['W']['min_mass'], axis=1) & awkward1.any(hadW.mass<parameters['W']['max_mass'], axis=1) & awkward1.any(lepW.mass>parameters['W']['min_mass'], axis=1) & awkward1.any(lepW.mass<parameters['W']['max_mass'], axis=1)
 
 		#deltaR between objects
 		#deltaRHiggsLepton      = awkward1.firsts(events.GoodFatJet[mask_events_withFatJet].delta_r(events.LeadingLepton[mask_events_withFatJet]))
 		lepWs = JaggedCandidateArray.candidatesfromcounts(np.array(nleps > 0, dtype=int), pt=lepW.pt.flatten(), eta=lepW.eta.flatten(), phi=lepW.phi.flatten(), mass=lepW.mass.flatten())
 		hadWs = JaggedCandidateArray.candidatesfromcounts(n_hadW, pt=hadW.pt.flatten(), eta=hadW.eta.flatten(), phi=hadW.phi.flatten(), mass=hadW.mass.flatten())
-		higgs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withFatJet, dtype=int), pt=leading_fatjet_pt[mask_events_withFatJet], eta=leading_fatjet_eta[mask_events_withFatJet], phi=leading_fatjet_phi[mask_events_withFatJet], mass=leading_fatjet_mass[mask_events_withFatJet])
 		deltaRlepWHiggs = calc_dr(lepWs, higgs)
 		deltaRhadWHiggs = calc_dr(hadWs, higgs)
 
 #		mask_events['2J2WdeltaR'] = mask_events['2J2W'] & (deltaRlepWHiggs>1.5) & (deltaRhadWHiggs>1.5) & (deltaRlepWHiggs<4) & (deltaRhadWHiggs<4)
-		mask_events['2J2WdeltaR'] = mask_events['2J2W'] & awkward1.any(deltaRlepWHiggs>1, axis=1) & awkward1.any(deltaRhadWHiggs>1, axis=1)# & (deltaRlepWHiggs<4) & (deltaRhadWHiggs<4)
+		mask_events['2J2WdeltaR'] = mask_events['2J2W'] & (deltaRlepWHiggs>1) & (deltaRhadWHiggs>1) # & (deltaRlepWHiggs<4) & (deltaRhadWHiggs<4)
 
 		#boosted Higgs
 		leading_fatjet_tau1     = get_leading_value(events.GoodFatJet.tau1, default=999.9)
@@ -386,7 +393,7 @@ class ttHbb(processor.ProcessorABC):
 		for m in mask_events.copy():
 			if m=='resolved': continue
 			mask_events[m+'_orthogonal'] = mask_events[m] & (btags_resolved < 3)
-			mask_events[m+'_overlap']    = mask_events[m] & mask_events['resolved']
+			#mask_events[m+'_overlap']    = mask_events[m] & mask_events['resolved']
 		for mn,m in mask_events.items():
 			output["sumw"]['nevts_'+mn] += sum(weights['nominal'][m])
 
@@ -416,7 +423,7 @@ class ttHbb(processor.ProcessorABC):
 		'btags'             : btags,
 		'btags_resolved'    : btags_resolved,
 		'nfatjets'          : nfatjets,
-		'met'               : scalars[metstruct+'_pt'],
+		'met'               : MET.pt,
 		'leading_jet_pt'    : leading_jet_pt,
 		'leading_jet_eta'   : leading_jet_eta,
 		'leadAK8JetMass'    : leading_fatjet_SDmass,
@@ -427,12 +434,12 @@ class ttHbb(processor.ProcessorABC):
 		'leadAK8JetRho'     : leading_fatjet_rho,
 		'lepton_pt'         : leading_lepton_pt,
 		'lepton_eta'        : leading_lepton_eta,
-		'hadWPt'            : hadW.pt,
-		'hadWEta'           : hadW.eta,
-		'hadWMass'          : hadW.mass,
-		'lepWPt'            : lepW.pt,
-		'lepWEta'           : lepW.eta,
-		'lepWMass'          : lepW.mass,
+		'hadWPt'            : get_leading_value(hadW.pt),
+		'hadWEta'           : get_leading_value(hadW.eta),
+		'hadWMass'          : get_leading_value(hadW.mass),
+		'lepWPt'            : get_leading_value(lepW.pt),
+		'lepWEta'           : get_leading_value(lepW.eta),
+		'lepWMass'          : get_leading_value(lepW.mass),
 		'deltaRlepWHiggs'   : deltaRlepWHiggs,
 		'deltaRhadWHiggs'   : deltaRhadWHiggs,
 		'deltaRHiggsLepton' : deltaRHiggsLepton,
@@ -442,11 +449,10 @@ class ttHbb(processor.ProcessorABC):
 		if is_mc:
 			for wn,w in weights.items():
 				vars_to_plot[f'weights_{wn}'] = w
-	  		#vars_to_plot['pu_weights'] = pu_weights
 
 		#var_name, var = 'leadAK8JetMass', leading_fatjet_SDmass
 		vars_split = ['leadAK8JetMass', 'leadAK8JetRho']
-		ptbins = NUMPY_LIB.append( NUMPY_LIB.arange(250,600,50), [600, 1000, 5000] )
+		ptbins = np.append( np.arange(250,600,50), [600, 1000, 5000] )
 		for var_name in vars_split:
 			var = vars_to_plot[var_name]
 			for ipt in range( len(ptbins)-1 ):
@@ -456,7 +462,7 @@ class ttHbb(processor.ProcessorABC):
 							mask_name = f'{m}_{r}{o}'
 							if not mask_name in mask_events: continue
 							mask = mask_events[mask_name] & (leading_fatjet_pt>ptbins[ipt]) & (leading_fatjet_pt<ptbins[ipt+1])
-							output[f'hist_{var_name}_{mask_name}_pt{ptbins[ipt]}to{ptbins[ipt+1]}'].fill(dataset, var[mask], weight=weights['nominal'][mask])
+							output[f'hist_{var_name}_{mask_name}_pt{ptbins[ipt]}to{ptbins[ipt+1]}'].fill(dataset=dataset, values=var[mask], weight=weights['nominal'][mask])
 
 		for wn,w in weights.items():
 			if wn != 'nominal': continue
@@ -466,10 +472,19 @@ class ttHbb(processor.ProcessorABC):
 				for var_name, var in vars_to_plot.items():
 					#if (not is_mc) and ('Pass' in mask_name) and (var_name=='leadAK8JetMass') : continue
 					try:
-						output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset, var[mask], weight=w[mask])
+						#print(var_name, mask_name)
+						output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=var[mask], weight=w[mask])
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
 
+		"""
+		from coffea.util import _ensure_flat
+		for wn,w in weights.items():
+			for mask_name, mask in mask_events.items():
+				if not 'deltaR' in mask_name: continue
+				print(wn, "[", mask_name, "]: ", w[mask])
+				array = _ensure_flat(w[mask])
+		"""
 
 ######################################################
 
@@ -520,6 +535,35 @@ class ttHbb(processor.ProcessorABC):
 		return output
 
 	def postprocess(self, accumulator):
+		plot_dir = "plots/"
+		histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png", "jets_pt.png", "jets_eta.png", "goodjets_pt.png", "goodjets_eta.png",
+					 "njets.png", "ngoodjets.png", "nnonbjets.png", "leptons_pt.png","leptons_eta.png", "higgs_rho.png", "higgs_mass.png"]
+		histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets', 'leptons', 'leptons', 'higgs_mass', 'higgs_mass']
+		integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'], 'eta', 'pt', 'mass', 'rho']
+		#integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ('ngoodjets', 'ngoodjets_nohiggs')]
+		if not os.path.exists(plot_dir):
+			os.makedirs(plot_dir)
+		for (i, histo) in enumerate(histos):
+			if histo in ["njets.png", "ngoodjets.png", "nnonbjets.png"]:
+				ax = hist.plot1d(accumulator[histo_names[i]].sum(*integrateover[i]), overlay='dataset')
+			else:
+				ax = hist.plot1d(accumulator[histo_names[i]].sum(integrateover[i]), overlay='dataset')
+			ax.figure.savefig(plot_dir + histo, dpi=300, format="png")
+			plt.close(ax.figure)
+
+		ax = hist.plot1d(accumulator['higgs'], overlay='dataset')
+		ax.figure.savefig(plot_dir + "deltaRHiggsLepton.png", dpi=300, format="png")
+		plt.close(ax.figure)
+
+		plot_dir = "plots/comparison/"
+		if not os.path.exists(plot_dir):
+			os.makedirs(plot_dir)
+		print("Saving plots in " + plot_dir)
+		#for histo in accumulator["hist_list_split"] + accumulator["hist_list"]:
+		for histo in [item for item in accumulator.keys() if "hist" in item]:
+			ax = hist.plot1d(accumulator[histo], overlay='dataset')
+			ax.figure.savefig(plot_dir + histo + ".png", dpi=300, format="png")
+			plt.close(ax.figure)
 		return accumulator
 
 if __name__ == "__main__":
@@ -570,14 +614,11 @@ if __name__ == "__main__":
 		ext.finalize()
 		evaluator = ext.make_evaluator()
 
-	samples = {
-		"ttHTobb": [
-			"root://xrootd-cms.infn.it//store/user/algomez/tmpFiles/ttH/ttHTobb_M125_TuneCP5_PSweights_13TeV-powheg-pythia8/ttHTobb_nanoAODPostProcessor_2017_v03/201009_121211/0000/nano_postprocessed_18.root",
-		],
-		"TTToSemiLeptonic": [
-			"root://xrootd-cms.infn.it//store/user/algomez/tmpFiles/ttH/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/TTToSemiLeptonic_nanoAODPostProcessor_2017_v03/200903_113849/0000/nano_postprocessed_97.root"
-		]
-	}
+	f1 = open("datasets/RunIIFall17NanoAODv7PostProc/ttHTobb_2017.txt", 'r')
+	f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTToSemiLeptonic_2017.txt", 'r')
+	samples = { "ttHTobb": f1.read().splitlines(), "TTToSemiLeptonic": f2.read().splitlines() }
+	f1.close()
+	f2.close()
 
 	"""
 	samples = {
@@ -589,6 +630,7 @@ if __name__ == "__main__":
 		]
 	}
 	"""
+
 	MyProcessor = ttHbb()
 	#MyProcessor = ttHbb(sample=args.sample)
 
@@ -602,31 +644,3 @@ if __name__ == "__main__":
 		chunksize=30000,
 		maxchunks=6,
 	)
-
-	plot_dir = "plots/"
-	histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png", "jets_pt.png", "jets_eta.png", "goodjets_pt.png", "goodjets_eta.png",
-				 "njets.png", "ngoodjets.png", "nnonbjets.png", "leptons_pt.png","leptons_eta.png", "higgs_rho.png", "higgs_mass.png"]
-	histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets', 'leptons', 'leptons', 'higgs_mass', 'higgs_mass']
-	integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'], 'eta', 'pt', 'mass', 'rho']
-	#integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ('ngoodjets', 'ngoodjets_nohiggs')]
-	if not os.path.exists(plot_dir):
-		os.makedirs(plot_dir)
-	for (i, histo) in enumerate(histos):
-		if histo in ["njets.png", "ngoodjets.png", "nnonbjets.png"]:
-			ax = hist.plot1d(result[histo_names[i]].sum(*integrateover[i]), overlay='dataset')
-		else:
-			ax = hist.plot1d(result[histo_names[i]].sum(integrateover[i]), overlay='dataset')
-		ax.figure.savefig(plot_dir + histo, dpi=300, format="png")
-		plt.close(ax.figure)
-
-	ax = hist.plot1d(result['higgs'], overlay='dataset')
-	ax.figure.savefig(plot_dir + "deltaRHiggsLepton.png", dpi=300, format="png")
-	plt.close(ax.figure)
-
-	plot_dir = "plots/comparison/"
-	if not os.path.exists(plot_dir):
-		os.makedirs(plot_dir)
-	for histo in output["hist_list_split"] + output["hist_list"]:
-		ax = hist.plot1d(result[histo], overlay='dataset')
-		ax.figure.savefig(plot_dir + histo + ".png", dpi=300, format="png")
-		plt.close(ax.figure)

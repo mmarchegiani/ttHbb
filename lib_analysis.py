@@ -37,6 +37,19 @@ def lepton_selection(leps, cuts, year):
 
 	return good_leps, veto_leps
 
+def get_leading_value(var1, var2=None, default=-999.9):
+
+	default = ak.from_iter(len(var1)*[default])
+	firsts1 = ak.firsts(var1)
+	if type(var2) is type(None):
+		#return ak.where(ak.is_none(firsts1), default, firsts1)
+		return ak.from_iter(ak.where(ak.is_none(firsts1), default, firsts1))
+	else:
+		firsts2 = ak.firsts(var2)
+		leading = ak.where(ak.is_none(firsts1), firsts2, firsts1)
+		#return ak.where(ak.is_none(leading), default, leading)
+		return ak.from_iter(ak.where(ak.is_none(leading), default, leading))
+
 def calc_dr2(pairs):
 	
 	deta = pairs.i0.eta - pairs.i1.eta
@@ -48,7 +61,7 @@ def calc_dr(objects1, objects2):
 
 	pairs = objects1.cross(objects2)
 
-	return ak.from_iter(np.sqrt(calc_dr2(pairs)))
+	return get_leading_value(ak.from_iter(np.sqrt(calc_dr2(pairs))))
 
 def pass_dr(pairs, dr):
 
@@ -72,17 +85,6 @@ def jet_nohiggs_selection(jets, fatjets, mask_fatjets, dr=1.2):
 	jets_pass_dr = nested_mask.all()
 
 	return jets_pass_dr
-
-def get_leading_value(var1, var2=None, default=-999.9):
-
-	default = ak.from_iter(len(var1)*[default])
-	firsts1 = ak.firsts(var1)
-	if type(var2) is type(None):
-		return ak.where(ak.is_none(firsts1), default, firsts1)
-	else:
-		firsts2 = ak.firsts(var2)
-		leading = ak.where(ak.is_none(firsts1), firsts2, firsts1)
-		return ak.where(ak.is_none(leading), default, leading)
 
 def load_puhist_target(filename):
 
