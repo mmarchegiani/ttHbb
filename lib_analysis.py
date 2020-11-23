@@ -53,7 +53,7 @@ def get_leading_value(var1, var2=None, default=-999.9):
 def calc_dr2(pairs):
 	
 	deta = pairs.i0.eta - pairs.i1.eta
-	dphi = pairs.i0.phi - pairs.i1.phi
+	dphi = (pairs.i0.phi - pairs.i1.phi + np.pi) % (2*np.pi) - np.pi
 	
 	return deta**2 + dphi**2
 

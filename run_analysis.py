@@ -1,8 +1,10 @@
+# python run_analysis.py --sample 2017
+
 import argparse
 import os
 import sys
+import json
 
-#import awkward1 as ak
 import awkward1
 import matplotlib.pyplot as plt
 import numpy as np
@@ -110,6 +112,12 @@ class ttHbb(processor.ProcessorABC):
 				hist.Bin("nnonbjets", "$N_{nonbjets}$", np.linspace(*histogram_settings['ngoodjets'])),
 			),
 			"leptons": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"leptons_with_cuts": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
 				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
@@ -271,6 +279,7 @@ class ttHbb(processor.ProcessorABC):
 		if "SingleMuon" in args.sample: trigger_el = np.zeros(nEvents, dtype=np.bool)
 		if "SingleElectron" in args.sample: trigger_mu = np.zeros(nEvents, dtype=np.bool)
 		mask_events = mask_events & (trigger_el | trigger_mu)
+		mask_events_lepton = mask_events
 
 		# for reference, this is the selection for the resolved analysis
 		mask_events_res = mask_events & (nleps == 1) & (lepton_veto == 0) & (ngoodjets >= 4) & (btags_resolved > 2) & (MET.pt > 20)
@@ -351,6 +360,7 @@ class ttHbb(processor.ProcessorABC):
 		#Ws reconstruction
 		events.LeadingLepton["p4"] = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), pt=events.LeadingLepton.pt, eta=events.LeadingLepton.eta, phi=events.LeadingLepton.phi, mass=events.LeadingLepton.mass)
 		pznu = METzCalculator(events.LeadingLepton.p4.p4, MET.p4.p4, mask_events['2J'])
+		#pznu = METzCalculator(leading_leptons.p4, MET.p4.p4, mask_events['2J'])
 		#neutrino_p4 = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), px=MET.p4.p4.x, py=MET.p4.p4.y, pz=pznu, energy=np.sqrt( MET.p4.p4.x**2 + MET.p4.p4.y**2 + pznu**2 ))
 		neutrino_p4 = TLorentzVectorArray.from_cartesian(MET.p4.p4.x, MET.p4.p4.y, pznu, np.sqrt( MET.p4.p4.x**2 + MET.p4.p4.y**2 + pznu**2 ))
 		leading_lepton_p4 = TLorentzVectorArray.from_ptetaphim(events.LeadingLepton.pt, events.LeadingLepton.eta, events.LeadingLepton.phi, events.LeadingLepton.mass)
@@ -477,15 +487,6 @@ class ttHbb(processor.ProcessorABC):
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
 
-		"""
-		from coffea.util import _ensure_flat
-		for wn,w in weights.items():
-			for mask_name, mask in mask_events.items():
-				if not 'deltaR' in mask_name: continue
-				print(wn, "[", mask_name, "]: ", w[mask])
-				array = _ensure_flat(w[mask])
-		"""
-
 ######################################################
 
 						
@@ -518,8 +519,13 @@ class ttHbb(processor.ProcessorABC):
 		)
 		output["leptons"].fill(
 			dataset=dataset,
-			pt=events.LeadingLepton.pt.flatten(),
-			eta=events.LeadingLepton.eta.flatten(),
+			pt=leading_lepton_pt[mask_events_lepton],
+			eta=leading_lepton_eta[mask_events_lepton],
+		)
+		output["leptons_with_cuts"].fill(
+			dataset=dataset,
+			pt=leading_lepton_pt[mask_events['2J2WdeltaR']],
+			eta=leading_lepton_eta[mask_events['2J2WdeltaR']],
 		)
 		output["higgs"].fill(
 			dataset=dataset,
@@ -537,9 +543,9 @@ class ttHbb(processor.ProcessorABC):
 	def postprocess(self, accumulator):
 		plot_dir = "plots/"
 		histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png", "jets_pt.png", "jets_eta.png", "goodjets_pt.png", "goodjets_eta.png",
-					 "njets.png", "ngoodjets.png", "nnonbjets.png", "leptons_pt.png","leptons_eta.png", "higgs_rho.png", "higgs_mass.png"]
-		histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets', 'leptons', 'leptons', 'higgs_mass', 'higgs_mass']
-		integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'], 'eta', 'pt', 'mass', 'rho']
+					 "njets.png", "ngoodjets.png", "nnonbjets.png", "leptons_pt.png","leptons_eta.png", "leptons_with_cuts_pt.png","leptons_with_cuts_eta.png", "higgs_rho.png", "higgs_mass.png"]
+		histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets', 'leptons', 'leptons', 'leptons_with_cuts', 'leptons_with_cuts', 'higgs_mass', 'higgs_mass']
+		integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'], 'eta', 'pt', 'eta', 'pt', 'mass', 'rho']
 		#integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ('ngoodjets', 'ngoodjets_nohiggs')]
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
@@ -559,11 +565,29 @@ class ttHbb(processor.ProcessorABC):
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
 		print("Saving plots in " + plot_dir)
-		#for histo in accumulator["hist_list_split"] + accumulator["hist_list"]:
-		for histo in [item for item in accumulator.keys() if "hist" in item]:
-			ax = hist.plot1d(accumulator[histo], overlay='dataset')
-			ax.figure.savefig(plot_dir + histo + ".png", dpi=300, format="png")
-			plt.close(ax.figure)
+		datasets = []
+		for item in accumulator.keys():
+			if "hist" in item:
+				datasets = accumulator[item].values().keys()
+				break
+		hist_dir = plot_dir + "nominal/"
+		if not os.path.exists(hist_dir):
+			os.makedirs(hist_dir)
+		for dataset in datasets:
+			data = {}
+			for histo in [item for item in accumulator.keys() if "hist" in item]:
+				dataset_label = str(dataset).strip("'(),")
+				d = {}
+				d['contents'] = accumulator[histo].values()[dataset].tolist()
+				identifiers = accumulator[histo].identifiers('values')
+				d['edges'] = [item.lo for item in identifiers] + [identifiers[-1].hi]
+				data[histo] = d
+			with open(hist_dir + 'out_' + dataset_label + '_nominal_merged.json', 'w') as outfile:
+				json.dump(data, outfile, sort_keys=True, indent=4)
+
+			#ax = hist.plot1d(accumulator[histo], overlay='dataset')
+			#ax.figure.savefig(plot_dir + histo + ".png", dpi=300, format="png")
+			#plt.close(ax.figure)
 		return accumulator
 
 if __name__ == "__main__":
@@ -642,5 +666,5 @@ if __name__ == "__main__":
 		processor.futures_executor,
 		{"nano": True, "workers": 10},
 		chunksize=30000,
-		maxchunks=6,
+		maxchunks=150,
 	)
