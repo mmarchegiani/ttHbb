@@ -19,6 +19,8 @@ from uproot_methods import TLorentzVectorArray
 from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
 from definitions_analysis import parameters, histogram_settings, samples_info
 
+from pdb import set_trace
+
 class ttHbb(processor.ProcessorABC):
 	def __init__(self):
 		#self.sample = sample
@@ -91,6 +93,54 @@ class ttHbb(processor.ProcessorABC):
 				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
 				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
 			),
+			"good_muons_resolved": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"good_muons_boosted": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"good_muons_with_cuts": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"electrons": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"good_electrons": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"good_electrons_resolved": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"good_electrons_boosted": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"good_electrons_with_cuts": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
 			"jets": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
@@ -117,6 +167,18 @@ class ttHbb(processor.ProcessorABC):
 				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
 				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
 			),
+			"leptons_resolved": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
+			"leptons_boosted": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
+				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
+			),
 			"leptons_with_cuts": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
@@ -134,6 +196,11 @@ class ttHbb(processor.ProcessorABC):
 				hist.Cat("dataset", "Dataset"),
 				hist.Bin("mass", "$M_{H}$ [GeV]", np.linspace(*histogram_settings['leadAK8JetMass'])),
 				hist.Bin("rho", "${\{rho}}_{H} $", np.linspace(*histogram_settings['leadAK8JetRho'])),
+			),
+			"pznu": hist.Hist(
+				"entries",
+				hist.Cat("dataset", "Dataset"),
+				hist.Bin("pznu", "$p^{Z}_{\nu}$ [GeV]", np.linspace(-300, 300, 101)),
 			),
 		})
 
@@ -246,6 +313,7 @@ class ttHbb(processor.ProcessorABC):
 		nonbjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) < parameters["btagging_WP"])
 
 		# apply basic event selection -> individual categories cut later
+		"""
 		nmuons         = muons[mask_events,:][good_muons].counts
 		nelectrons     = electrons[mask_events,:][good_electrons].counts
 		nleps          = nmuons + nelectrons
@@ -257,6 +325,19 @@ class ttHbb(processor.ProcessorABC):
 		btags_resolved = jets[mask_events,:][bjets_resolved].counts
 		nfatjets       = fatjets[mask_events,:][good_fatjets].counts
 		#nhiggs         = fatjets[mask_events,:][higgs_candidates].counts
+		"""
+
+		nmuons         = muons[good_muons].counts[mask_events]
+		nelectrons     = electrons[good_electrons].counts[mask_events]
+		nleps          = nmuons + nelectrons
+		lepton_veto    = muons[veto_muons].counts[mask_events] + electrons[veto_electrons].counts[mask_events]
+		njets_raw      = jets.counts[mask_events]
+		njets          = jets[nonbjets].counts[mask_events]
+		ngoodjets      = jets[good_jets].counts[mask_events]
+		btags          = jets[bjets].counts[mask_events]
+		btags_resolved = jets[bjets_resolved].counts[mask_events]
+		nfatjets       = fatjets[good_fatjets].counts[mask_events]
+		#nhiggs         = fatjets[higgs_candidates].counts[mask_events]
 
 		# trigger logic
 		trigger_el = (nleps==1) & (nelectrons==1)
@@ -279,7 +360,7 @@ class ttHbb(processor.ProcessorABC):
 		if "SingleMuon" in args.sample: trigger_el = np.zeros(nEvents, dtype=np.bool)
 		if "SingleElectron" in args.sample: trigger_mu = np.zeros(nEvents, dtype=np.bool)
 		mask_events = mask_events & (trigger_el | trigger_mu)
-		mask_events_lepton = mask_events
+		mask_events_trigger = mask_events
 
 		# for reference, this is the selection for the resolved analysis
 		mask_events_res = mask_events & (nleps == 1) & (lepton_veto == 0) & (ngoodjets >= 4) & (btags_resolved > 2) & (MET.pt > 20)
@@ -297,6 +378,7 @@ class ttHbb(processor.ProcessorABC):
 		# calculate basic variables
 		leading_jet_pt         = get_leading_value(events.GoodJet.pt)
 		leading_jet_eta        = get_leading_value(events.GoodJet.eta, default=-9.)
+		leading_jet_phi        = get_leading_value(events.GoodJet.phi)
 		leading_fatjet_SDmass  = get_leading_value(events.GoodFatJet.msoftdrop)
 		leading_fatjet_pt      = get_leading_value(events.GoodFatJet.pt)
 		leading_fatjet_eta     = get_leading_value(events.GoodFatJet.eta, default=-9.)
@@ -358,17 +440,14 @@ class ttHbb(processor.ProcessorABC):
 		mask_events['2J']   = mask_events['basic'] & (njets>1)
 
 		#Ws reconstruction
-		events.LeadingLepton["p4"] = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), pt=events.LeadingLepton.pt, eta=events.LeadingLepton.eta, phi=events.LeadingLepton.phi, mass=events.LeadingLepton.mass)
-		pznu = METzCalculator(events.LeadingLepton.p4.p4, MET.p4.p4, mask_events['2J'])
-		#pznu = METzCalculator(leading_leptons.p4, MET.p4.p4, mask_events['2J'])
-		#neutrino_p4 = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), px=MET.p4.p4.x, py=MET.p4.p4.y, pz=pznu, energy=np.sqrt( MET.p4.p4.x**2 + MET.p4.p4.y**2 + pznu**2 ))
-		neutrino_p4 = TLorentzVectorArray.from_cartesian(MET.p4.p4.x, MET.p4.p4.y, pznu, np.sqrt( MET.p4.p4.x**2 + MET.p4.p4.y**2 + pznu**2 ))
-		leading_lepton_p4 = TLorentzVectorArray.from_ptetaphim(events.LeadingLepton.pt, events.LeadingLepton.eta, events.LeadingLepton.phi, events.LeadingLepton.mass)
-		#lepW = neutrino_p4.cross(events.LeadingLepton["p4"])
-		lepW = leading_lepton_p4 + neutrino_p4
-		#lepW = JaggedCandidateArray.candidatesfromcounts(np.ones(nEvents), pt=lepW_vector.pt, eta=lepW_vector.eta, phi=lepW_vector.phi, mass=lepW_vector.mass)
+		leading_leptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=leading_lepton_pt[mask_events['2J']], eta=leading_lepton_eta[mask_events['2J']], phi=leading_lepton_phi[mask_events['2J']], mass=leading_lepton_mass[mask_events['2J']])
+		METs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=MET.pt[mask_events['2J']], eta=np.zeros_like(MET.pt[mask_events['2J']]), phi=MET.phi[mask_events['2J']], mass=np.zeros_like(MET.pt[mask_events['2J']]))
+		pznu = METzCalculator(leading_leptons.p4, METs.p4, mask_events['2J'])
+		neutrinos = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), px=METs.p4.x.content, py=METs.p4.y.content, pz=METs.p4.z.content, mass=np.zeros_like(METs.p4.x.content))
+		lepW = leading_leptons.p4 + neutrinos.p4
 
-		good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(events.GoodJet.counts, pt=events.GoodJet.pt.content, eta=events.GoodJet.eta.content, phi=events.GoodJet.phi.content, mass=events.GoodJet.mass.content)
+		good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(np.where(mask_events['2J'], events.GoodJet.counts, np.zeros_like(events.GoodJet.counts)), pt=events.GoodJet.pt[mask_events['2J']].content, eta=events.GoodJet.eta[mask_events['2J']].content, phi=events.GoodJet.phi[mask_events['2J']].content, mass=events.GoodJet.mass[mask_events['2J']].content)
+		#good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(events.GoodJet.counts[mask_events['2J']], pt=events.GoodJet.pt[mask_events['2J']].content, eta=events.GoodJet.eta[mask_events['2J']].content, phi=events.GoodJet.phi[mask_events['2J']].content, mass=events.GoodJet.mass[mask_events['2J']].content)
 
 		hadW, n_hadW = hadronic_W(good_jets_p4, lepW)
 
@@ -377,9 +456,9 @@ class ttHbb(processor.ProcessorABC):
 		mask_events['2J2W'] = mask_events['2J'] & awkward1.any(hadW.mass>parameters['W']['min_mass'], axis=1) & awkward1.any(hadW.mass<parameters['W']['max_mass'], axis=1) & awkward1.any(lepW.mass>parameters['W']['min_mass'], axis=1) & awkward1.any(lepW.mass<parameters['W']['max_mass'], axis=1)
 
 		#deltaR between objects
-		#deltaRHiggsLepton      = awkward1.firsts(events.GoodFatJet[mask_events_withFatJet].delta_r(events.LeadingLepton[mask_events_withFatJet]))
-		lepWs = JaggedCandidateArray.candidatesfromcounts(np.array(nleps > 0, dtype=int), pt=lepW.pt.flatten(), eta=lepW.eta.flatten(), phi=lepW.phi.flatten(), mass=lepW.mass.flatten())
+		lepWs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=lepW.pt.flatten(), eta=lepW.eta.flatten(), phi=lepW.phi.flatten(), mass=lepW.mass.flatten())
 		hadWs = JaggedCandidateArray.candidatesfromcounts(n_hadW, pt=hadW.pt.flatten(), eta=hadW.eta.flatten(), phi=hadW.phi.flatten(), mass=hadW.mass.flatten())
+		#higgs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=leading_fatjet_pt[mask_events['2J']], eta=leading_fatjet_eta[mask_events['2J']], phi=leading_fatjet_phi[mask_events['2J']], mass=leading_fatjet_mass[mask_events['2J']])
 		deltaRlepWHiggs = calc_dr(lepWs, higgs)
 		deltaRhadWHiggs = calc_dr(hadWs, higgs)
 
@@ -489,7 +568,6 @@ class ttHbb(processor.ProcessorABC):
 
 ######################################################
 
-						
 		output["muons"].fill(
 			dataset=dataset,
 			pt=muons.pt.flatten(),
@@ -497,8 +575,48 @@ class ttHbb(processor.ProcessorABC):
 		)
 		output["good_muons"].fill(
 			dataset=dataset,
-			pt=events.GoodMuon.pt.flatten(),
-			eta=events.GoodMuon.eta.flatten(),
+			pt=events.GoodMuon.pt[mask_events_trigger].flatten(),
+			eta=events.GoodMuon.eta[mask_events_trigger].flatten(),
+		)
+		output["good_muons_resolved"].fill(
+			dataset=dataset,
+			pt=events.GoodMuon.pt[mask_events['resolved']].flatten(),
+			eta=events.GoodMuon.eta[mask_events['resolved']].flatten(),
+		)
+		output["good_muons_boosted"].fill(
+			dataset=dataset,
+			pt=events.GoodMuon.pt[mask_events['basic']].flatten(),
+			eta=events.GoodMuon.eta[mask_events['basic']].flatten(),
+		)
+		output["good_muons_with_cuts"].fill(
+			dataset=dataset,
+			pt=events.GoodMuon.pt[mask_events['2J2WdeltaR']].flatten(),
+			eta=events.GoodMuon.eta[mask_events['2J2WdeltaR']].flatten(),
+		)
+		output["electrons"].fill(
+			dataset=dataset,
+			pt=electrons.pt.flatten(),
+			eta=electrons.eta.flatten(),
+		)
+		output["good_electrons"].fill(
+			dataset=dataset,
+			pt=events.GoodElectron.pt[mask_events_trigger].flatten(),
+			eta=events.GoodElectron.eta[mask_events_trigger].flatten(),
+		)
+		output["good_electrons_resolved"].fill(
+			dataset=dataset,
+			pt=events.GoodElectron.pt[mask_events['resolved']].flatten(),
+			eta=events.GoodElectron.eta[mask_events['resolved']].flatten(),
+		)
+		output["good_electrons_boosted"].fill(
+			dataset=dataset,
+			pt=events.GoodElectron.pt[mask_events['basic']].flatten(),
+			eta=events.GoodElectron.eta[mask_events['basic']].flatten(),
+		)
+		output["good_electrons_with_cuts"].fill(
+			dataset=dataset,
+			pt=events.GoodElectron.pt[mask_events['2J2WdeltaR']].flatten(),
+			eta=events.GoodElectron.eta[mask_events['2J2WdeltaR']].flatten(),
 		)
 		output["jets"].fill(
 			dataset=dataset,
@@ -507,8 +625,8 @@ class ttHbb(processor.ProcessorABC):
 		)
 		output["good_jets"].fill(
 			dataset=dataset,
-			pt=events.GoodJet.pt.flatten(),
-			eta=events.GoodJet.eta.flatten(),
+			pt=events.GoodJet.pt[mask_events_trigger].flatten(),
+			eta=events.GoodJet.eta[mask_events_trigger].flatten(),
 		)
 		output["njets"].fill(
 			dataset=dataset,
@@ -519,8 +637,18 @@ class ttHbb(processor.ProcessorABC):
 		)
 		output["leptons"].fill(
 			dataset=dataset,
-			pt=leading_lepton_pt[mask_events_lepton],
-			eta=leading_lepton_eta[mask_events_lepton],
+			pt=leading_lepton_pt[mask_events_trigger],
+			eta=leading_lepton_eta[mask_events_trigger],
+		)
+		output["leptons_resolved"].fill(
+			dataset=dataset,
+			pt=leading_lepton_pt[mask_events['resolved']],
+			eta=leading_lepton_eta[mask_events['resolved']],
+		)
+		output["leptons_boosted"].fill(
+			dataset=dataset,
+			pt=leading_lepton_pt[mask_events['basic']],
+			eta=leading_lepton_eta[mask_events['basic']],
 		)
 		output["leptons_with_cuts"].fill(
 			dataset=dataset,
@@ -537,15 +665,69 @@ class ttHbb(processor.ProcessorABC):
 			mass=events.LeadingFatJet.SDmass.flatten(),
 			rho=events.LeadingFatJet.rho.flatten()
 		)
+		output["pznu"].fill(
+			dataset=dataset,
+			pznu=pznu[pznu>0],
+		)
+
+		"""
+		np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+		evts = [60185, 60437, 60571, 60630, 60671, 60754, 60871, 61096, 61128]
+		evts = [60571, 60754, 61496]
+		#    evts = [1550290, 1550342, 1550361, 1550387, 1550467, 1550502, 1550607, 1550660]
+		for (i, evt) in enumerate(evts):
+			evt_idx = np.where( events.event == evt )[0][0]
+			print(f'!!! EVENT {evt} !!!')
+			print(f'njets good {njets[evt_idx]}')
+			print('good_jets', good_jets[evt_idx])
+			print('good_jets_nohiggs', good_jets_nohiggs[evt_idx])
+			print('nonbjets', nonbjets[evt_idx])
+		#with open('events_pass_selection.txt','w+') as f:
+		#  for nevt in scalars['event'][mask_events['2J']]:
+		#    f.write(str(nevt)+'\n')
+		set_trace()
+		"""
+
+		mask = mask_events['2J2WdeltaR']
+		synch_dir = "synchMatteo/"
+		if not os.path.exists(synch_dir):
+			os.makedirs(synch_dir)
+		outf = f'{synch_dir}{sample}_coffea.txt'
+		exists = os.path.isfile(outf)
+		with open(outf,'a+') as f:
+			if not exists: f.write('nevt, run, lumi, njets, btags, leading_jet_pt, leading_jet_eta,  leading_jet_phi, nelectrons, nmuons, leading_lepton_pt, leading_lepton_eta, met_pt, vetoLep, deltaRhadWHiggs, deltaRlepWHiggs\n')
+			for nev,r,l,nj,nb,jpt,jeta,jphi,nel,nmu,lpt,leta,met,vetoLep,dRhadWH,dRlepWH in zip(events.event[mask], run[mask], luminosityBlock[mask], ngoodjets[mask], btags_resolved[mask], leading_jet_pt[mask], leading_jet_eta[mask], leading_jet_phi[mask], nelectrons[mask], nmuons[mask], leading_lepton_pt[mask], leading_lepton_eta[mask], MET.pt[mask], lepton_veto[mask], deltaRhadWHiggs[mask], deltaRlepWHiggs[mask]):
+				f.write(f'{nev}, {r}, {l}, {nj}, {nb}, {jpt}, {jeta}, {jphi}, {nel}, {nmu}, {lpt}, {leta}, {met}, {vetoLep}, {dRhadWH}, {dRlepWH}\n')
+		f.close()
 
 		return output
 
 	def postprocess(self, accumulator):
+
 		plot_dir = "plots/"
-		histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png", "jets_pt.png", "jets_eta.png", "goodjets_pt.png", "goodjets_eta.png",
-					 "njets.png", "ngoodjets.png", "nnonbjets.png", "leptons_pt.png","leptons_eta.png", "leptons_with_cuts_pt.png","leptons_with_cuts_eta.png", "higgs_rho.png", "higgs_mass.png"]
-		histo_names = ['muons', 'muons', 'good_muons', 'good_muons', 'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets', 'leptons', 'leptons', 'leptons_with_cuts', 'leptons_with_cuts', 'higgs_mass', 'higgs_mass']
-		integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'], 'eta', 'pt', 'eta', 'pt', 'mass', 'rho']
+		histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png",
+				  "goodmuons_resolved_pt.png", "goodmuons_resolved_eta.png", "goodmuons_boosted_pt.png", "goodmuons_boosted_eta.png", "goodmuons_with_cuts_pt.png", "goodmuons_with_cuts_eta.png",
+				  "electrons_pt.png", "electrons_eta.png", "goodelectrons_pt.png", "goodelectrons_eta.png",
+				  "goodelectrons_resolved_pt.png", "goodelectrons_resolved_eta.png", "goodelectrons_boosted_pt.png", "goodelectrons_boosted_eta.png", "goodelectrons_with_cuts_pt.png", "goodelectrons_with_cuts_eta.png",
+				  "jets_pt.png", "jets_eta.png", "goodjets_pt.png", "goodjets_eta.png",
+				  "njets.png", "ngoodjets.png", "nnonbjets.png",
+				  "leptons_pt.png","leptons_eta.png", "leptons_resolved_pt.png","leptons_resolved_eta.png", "leptons_boosted_pt.png","leptons_boosted_eta.png", "leptons_with_cuts_pt.png","leptons_with_cuts_eta.png",
+				  "higgs_rho.png", "higgs_mass.png"]
+		histo_names = ['muons', 'muons', 'good_muons', 'good_muons',
+					   'good_muons_resolved', 'good_muons_resolved', 'good_muons_boosted', 'good_muons_boosted', 'good_muons_with_cuts', 'good_muons_with_cuts',
+					   'electrons', 'electrons', 'good_electrons', 'good_electrons',
+					   'good_electrons_resolved', 'good_electrons_resolved', 'good_electrons_boosted', 'good_electrons_boosted', 'good_electrons_with_cuts', 'good_electrons_with_cuts',
+					   'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets',
+					   'leptons', 'leptons', 'leptons_resolved', 'leptons_resolved', 'leptons_boosted', 'leptons_boosted', 'leptons_with_cuts', 'leptons_with_cuts',
+					   'higgs_mass', 'higgs_mass']
+		integrateover = ['eta', 'pt', 'eta', 'pt',
+						 'eta', 'pt', 'eta', 'pt', 'eta', 'pt',
+						 'eta', 'pt', 'eta', 'pt',
+						 'eta', 'pt', 'eta', 'pt', 'eta', 'pt',
+						 'eta', 'pt', 'eta', 'pt',
+						 ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets'],
+						 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt',
+						 'mass', 'rho']
 		#integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ('ngoodjets', 'ngoodjets_nohiggs')]
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
@@ -559,6 +741,9 @@ class ttHbb(processor.ProcessorABC):
 
 		ax = hist.plot1d(accumulator['higgs'], overlay='dataset')
 		ax.figure.savefig(plot_dir + "deltaRHiggsLepton.png", dpi=300, format="png")
+		plt.close(ax.figure)
+		ax = hist.plot1d(accumulator['pznu'], overlay='dataset')
+		ax.figure.savefig(plot_dir + "pznu.png", dpi=300, format="png")
 		plt.close(ax.figure)
 
 		plot_dir = "plots/comparison/"
@@ -647,11 +832,11 @@ if __name__ == "__main__":
 	"""
 	samples = {
 		"ttHTobb": [
-			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_18_ttHbb.root",
+			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_24_ttHbb.root",
 		],
-		"TTToSemiLeptonic": [
-			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_97_tt_semileptonic.root"
-		]
+		#"TTToSemiLeptonic": [
+		#	"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_45_tt_semileptonic.root"
+		#]
 	}
 	"""
 
@@ -666,5 +851,5 @@ if __name__ == "__main__":
 		processor.futures_executor,
 		{"nano": True, "workers": 10},
 		chunksize=30000,
-		maxchunks=150,
+		#maxchunks=25,
 	)
