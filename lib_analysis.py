@@ -75,7 +75,7 @@ def jet_selection(jets, leps, mask_leps, cuts):
 	good_jets = (jets.pt > cuts["pt"]) & (np.abs(jets.eta) < cuts["eta"]) & (jets.jetId >= cuts["jetId"]) & jets_pass_dr
 	
 	if cuts["type"] == "jet":
-		good_jets = good_jets & ( (jets.pt < 50) & (jets.puId >= cuts["puId"]) ) | (jets.pt >= 50)
+		good_jets = good_jets & ( ( (jets.pt < 50) & (jets.puId >= cuts["puId"]) ) | (jets.pt >= 50) )
 
 	return good_jets
 
@@ -169,36 +169,36 @@ def METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_row
 	for i in range(len(tmpsol1)):
 		if not mask_rows[i]:
 			continue
-	if tmproot[i]<0: pznu[i] = - B[i]/(2*A[i])
-	else:
-		tmpsol1[i] = (-B[i] + np.sqrt(tmproot[i]))/(2.0*A[i])
-		tmpsol2[i] = (-B[i] - np.sqrt(tmproot[i]))/(2.0*A[i])
-		if (abs(tmpsol2[i]-pzlep[i]) < abs(tmpsol1[i]-pzlep[i])):
-			pznu[i] = tmpsol2[i]
-			#otherSol_ = tmpsol1
+		if tmproot[i]<0: pznu[i] = - B[i]/(2*A[i])
 		else:
-			pznu[i] = tmpsol1[i]
-			#otherSol_ = tmpsol2
-			#### if pznu is > 300 pick the most central root
-			if ( pznu[i] > 300. ):
-				if (abs(tmpsol1[i])<abs(tmpsol2[i]) ):
-					pznu[i] = tmpsol1[i]
-					#otherSol_ = tmpsol2
-				else:
-					pznu[i] = tmpsol2[i]
-					#otherSol_ = tmpsol1
+			tmpsol1[i] = (-B[i] + np.sqrt(tmproot[i]))/(2.0*A[i])
+			tmpsol2[i] = (-B[i] - np.sqrt(tmproot[i]))/(2.0*A[i])
+			if (abs(tmpsol2[i]-pzlep[i]) < abs(tmpsol1[i]-pzlep[i])):
+				pznu[i] = tmpsol2[i]
+				#otherSol_ = tmpsol1
+			else:
+				pznu[i] = tmpsol1[i]
+				#otherSol_ = tmpsol2
+				#### if pznu is > 300 pick the most central root
+				if ( pznu[i] > 300. ):
+					if (abs(tmpsol1[i])<abs(tmpsol2[i]) ):
+						pznu[i] = tmpsol1[i]
+						#otherSol_ = tmpsol2
+					else:
+						pznu[i] = tmpsol2[i]
+						#otherSol_ = tmpsol1
 
 def METzCalculator(lepton, MET, mask_rows):
 
 	np.seterr(invalid='ignore') # to suppress warning from nonsense numbers in masked events
 	M_W = 80.4
-	M_lep = lepton.mass #.1056
-	elep = lepton.E
-	pxlep = lepton.x
-	pylep = lepton.y
-	pzlep = lepton.z
-	pxnu = MET.x
-	pynu = MET.y
+	M_lep = lepton.mass.content #.1056
+	elep = lepton.E.content
+	pxlep = lepton.x.content
+	pylep = lepton.y.content
+	pzlep = lepton.z.content
+	pxnu = MET.x.content
+	pynu = MET.y.content
 	pznu = 0
 
 	a = M_W*M_W - M_lep*M_lep + 2.0*pxlep*pxnu + 2.0*pylep*pynu
@@ -216,10 +216,11 @@ def METzCalculator(lepton, MET, mask_rows):
 
 	return pznu
 
-def hadronic_W(jets, lepWp4):
+def hadronic_W(jets, lepW):
 
 	dijet = jets.choose(2)
-	dijet.add_attributes(mass_diff=abs(dijet.mass - lepWp4.mass.content))
+	dijet.add_attributes(mass_diff=abs(dijet.mass - ak.fill_none(ak.min(lepW.mass, axis=1), 999.9)))
+	#dijet.add_attributes(mass_diff=abs(dijet.mass - lepW.mass.content))
 	min_akarray = ak.min(dijet.mass_diff, axis=1)
 	min_mass_diff = ak.fill_none(min_akarray, value=9999.9)
 	hadW = dijet[dijet.mass_diff <= min_mass_diff]
