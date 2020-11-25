@@ -308,7 +308,10 @@ class ttHbb(processor.ProcessorABC):
 		good_fatjets = jet_selection(fatjets, muons, good_muons, parameters["fatjets"]) & jet_selection(fatjets, electrons, good_electrons, parameters["fatjets"])
 #	    good_fatjets = jet_selection(fatjets, muons, (veto_muons | good_muons), parameters["fatjets"]) & jet_selection(fatjets, electrons, (veto_electrons | good_electrons), parameters["fatjets"]) #FIXME remove vet_leptons
 
-		good_jets_nohiggs = good_jets & jet_nohiggs_selection(jets, fatjets, good_fatjets, 1.2)
+		mask_events_withFatJet = fatjets[good_fatjets].counts > 0
+		leading_fatjets = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withFatJet, dtype=int), pt=get_leading_value(fatjets[good_fatjets].pt[mask_events_withFatJet]), eta=get_leading_value(fatjets[good_fatjets].eta[mask_events_withFatJet]), phi=get_leading_value(fatjets[good_fatjets].phi[mask_events_withFatJet]), mass=get_leading_value(fatjets[good_fatjets].mass[mask_events_withFatJet]))
+
+		good_jets_nohiggs = good_jets & jet_nohiggs_selection(jets.p4, good_jets, leading_fatjets, 1.2)
 		bjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
 		nonbjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) < parameters["btagging_WP"])
 
@@ -399,12 +402,12 @@ class ttHbb(processor.ProcessorABC):
 		events["LeadingFatJet"] = awkward.Table(pt=leading_fatjet_pt, eta=leading_fatjet_eta, phi=leading_fatjet_phi, mass=leading_fatjet_mass, SDmass=leading_fatjet_SDmass, rho=leading_fatjet_rho)
 
 		#good_events           = events[mask_events]
-		mask_events_withFatJet = events.GoodFatJet.counts > 0
+		mask_events_withGoodFatJet = events.GoodFatJet.counts > 0
 		mask_events_withLepton = nleps > 0
 		leading_leptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withLepton, dtype=int), pt=leading_lepton_pt[mask_events_withLepton], eta=leading_lepton_eta[mask_events_withLepton], phi=leading_lepton_phi[mask_events_withLepton], mass=leading_lepton_mass[mask_events_withLepton])
-		higgs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withFatJet, dtype=int), pt=leading_fatjet_pt[mask_events_withFatJet], eta=leading_fatjet_eta[mask_events_withFatJet], phi=leading_fatjet_phi[mask_events_withFatJet], mass=leading_fatjet_mass[mask_events_withFatJet])
+		higgs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withGoodFatJet, dtype=int), pt=leading_fatjet_pt[mask_events_withGoodFatJet], eta=leading_fatjet_eta[mask_events_withGoodFatJet], phi=leading_fatjet_phi[mask_events_withGoodFatJet], mass=leading_fatjet_mass[mask_events_withGoodFatJet])
 		deltaRHiggsLepton      = calc_dr(leading_leptons, higgs)
-		#deltaRHiggsLepton      = awkward1.firsts(events.GoodFatJet[mask_events_withFatJet].delta_r(events.LeadingLepton[mask_events_withFatJet]))
+		#deltaRHiggsLepton      = awkward1.firsts(events.GoodFatJet[mask_events_withGoodFatJet].delta_r(events.LeadingLepton[mask_events_withGoodFatJet]))
 		events.LeadingFatJet["deltaRHiggsLepton"] = deltaRHiggsLepton
 
 		# calculate weights for MC samples
@@ -443,7 +446,7 @@ class ttHbb(processor.ProcessorABC):
 		leading_leptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=leading_lepton_pt[mask_events['2J']], eta=leading_lepton_eta[mask_events['2J']], phi=leading_lepton_phi[mask_events['2J']], mass=leading_lepton_mass[mask_events['2J']])
 		METs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=MET.pt[mask_events['2J']], eta=np.zeros_like(MET.pt[mask_events['2J']]), phi=MET.phi[mask_events['2J']], mass=np.zeros_like(MET.pt[mask_events['2J']]))
 		pznu = METzCalculator(leading_leptons.p4, METs.p4, mask_events['2J'])
-		neutrinos = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), px=METs.p4.x.content, py=METs.p4.y.content, pz=METs.p4.z.content, mass=np.zeros_like(METs.p4.x.content))
+		neutrinos = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), px=METs.p4.x.content, py=METs.p4.y.content, pz=pznu, mass=np.zeros_like(METs.p4.x.content))
 		lepW = leading_leptons.p4 + neutrinos.p4
 
 		good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(np.where(mask_events['2J'], events.GoodJet.counts, np.zeros_like(events.GoodJet.counts)), pt=events.GoodJet.pt[mask_events['2J']].content, eta=events.GoodJet.eta[mask_events['2J']].content, phi=events.GoodJet.phi[mask_events['2J']].content, mass=events.GoodJet.mass[mask_events['2J']].content)
@@ -672,32 +675,43 @@ class ttHbb(processor.ProcessorABC):
 
 		"""
 		np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
-		evts = [60185, 60437, 60571, 60630, 60671, 60754, 60871, 61096, 61128]
-		evts = [60571, 60754, 61496]
+		#evts = [60185, 60437, 60571, 60630, 60671, 60754, 60871, 61096, 61128]
+		evts = [2068092, 3026508]
 		#    evts = [1550290, 1550342, 1550361, 1550387, 1550467, 1550502, 1550607, 1550660]
 		for (i, evt) in enumerate(evts):
-			evt_idx = np.where( events.event == evt )[0][0]
+			evt_idx = np.where( events.event == evt )
+			if len(evt_idx) == 0:
+				continue
 			print(f'!!! EVENT {evt} !!!')
-			print(f'njets good {njets[evt_idx]}')
+			print(f'ngoodjets {ngoodjets[evt_idx]}')
 			print('good_jets', good_jets[evt_idx])
 			print('good_jets_nohiggs', good_jets_nohiggs[evt_idx])
+			print(f'njets {njets[evt_idx]}')
 			print('nonbjets', nonbjets[evt_idx])
+			print(f'leading_fatjet_pt {leading_fatjet_pt[evt_idx]}')
+			print(f'leading_fatjet_eta {leading_fatjet_eta[evt_idx]}')
+			print(f'leading_fatjet_phi {leading_fatjet_phi[evt_idx]}')
+			print('jet_nohiggs_selection', jet_nohiggs_selection(jets, fatjets, good_fatjets, 1.2)[evt_idx])
+			print(f'jets_pt {jets.pt[evt_idx]}')
+			print(f'jets_eta {jets.eta[evt_idx]}')
+			print(f'jets_phi {jets.phi[evt_idx]}')
 		#with open('events_pass_selection.txt','w+') as f:
 		#  for nevt in scalars['event'][mask_events['2J']]:
 		#    f.write(str(nevt)+'\n')
 		set_trace()
 		"""
 
-		mask = mask_events['2J2WdeltaR']
+		#mask = mask_events['2J2WdeltaR']
+		mask = mask_events['2J']
 		synch_dir = "synchMatteo/"
 		if not os.path.exists(synch_dir):
 			os.makedirs(synch_dir)
 		outf = f'{synch_dir}{sample}_coffea.txt'
 		exists = os.path.isfile(outf)
 		with open(outf,'a+') as f:
-			if not exists: f.write('nevt, run, lumi, njets, btags, leading_jet_pt, leading_jet_eta,  leading_jet_phi, nelectrons, nmuons, leading_lepton_pt, leading_lepton_eta, met_pt, vetoLep, deltaRhadWHiggs, deltaRlepWHiggs\n')
-			for nev,r,l,nj,nb,jpt,jeta,jphi,nel,nmu,lpt,leta,met,vetoLep,dRhadWH,dRlepWH in zip(events.event[mask], run[mask], luminosityBlock[mask], ngoodjets[mask], btags_resolved[mask], leading_jet_pt[mask], leading_jet_eta[mask], leading_jet_phi[mask], nelectrons[mask], nmuons[mask], leading_lepton_pt[mask], leading_lepton_eta[mask], MET.pt[mask], lepton_veto[mask], deltaRhadWHiggs[mask], deltaRlepWHiggs[mask]):
-				f.write(f'{nev}, {r}, {l}, {nj}, {nb}, {jpt}, {jeta}, {jphi}, {nel}, {nmu}, {lpt}, {leta}, {met}, {vetoLep}, {dRhadWH}, {dRlepWH}\n')
+			if not exists: f.write('nevt, run, lumi, njets, btags, leading_jet_pt, leading_jet_eta,  leading_jet_phi, nelectrons, nmuons, leading_lepton_pt, leading_lepton_eta, met_pt, vetoLep, deltaRhadWHiggs, deltaRlepWHiggs, hadW_mass, lepW_mass\n')
+			for nev,r,l,nj,nb,jpt,jeta,jphi,nel,nmu,lpt,leta,met,vetoLep,dRhadWH,dRlepWH,hadWMass,lepWMass in zip(events.event[mask], run[mask], luminosityBlock[mask], njets[mask], btags[mask], leading_jet_pt[mask], leading_jet_eta[mask], leading_jet_phi[mask], nelectrons[mask], nmuons[mask], leading_lepton_pt[mask], leading_lepton_eta[mask], MET.pt[mask], lepton_veto[mask], deltaRhadWHiggs[mask], deltaRlepWHiggs[mask], get_leading_value(hadW.mass)[mask], get_leading_value(lepW.mass)[mask]):
+				f.write(f'{nev}, {r}, {l}, {nj}, {nb}, {jpt}, {jeta}, {jphi}, {nel}, {nmu}, {lpt}, {leta}, {met}, {vetoLep}, {dRhadWH}, {dRlepWH}, {hadWMass}, {lepWMass}\n')
 		f.close()
 
 		return output
@@ -823,13 +837,14 @@ if __name__ == "__main__":
 		ext.finalize()
 		evaluator = ext.make_evaluator()
 
+	"""
 	f1 = open("datasets/RunIIFall17NanoAODv7PostProc/ttHTobb_2017.txt", 'r')
 	f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTToSemiLeptonic_2017.txt", 'r')
 	samples = { "ttHTobb": f1.read().splitlines(), "TTToSemiLeptonic": f2.read().splitlines() }
 	f1.close()
 	f2.close()
-
 	"""
+
 	samples = {
 		"ttHTobb": [
 			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_24_ttHbb.root",
@@ -838,7 +853,6 @@ if __name__ == "__main__":
 		#	"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_45_tt_semileptonic.root"
 		#]
 	}
-	"""
 
 	MyProcessor = ttHbb()
 	#MyProcessor = ttHbb(sample=args.sample)
@@ -849,7 +863,8 @@ if __name__ == "__main__":
 		"Events",
 		MyProcessor,
 		processor.futures_executor,
-		{"nano": True, "workers": 10},
+		{"nano": True, "workers": 1},
+		#{"nano": True, "workers": 10},
 		chunksize=30000,
 		#maxchunks=25,
 	)
