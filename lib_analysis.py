@@ -79,12 +79,13 @@ def jet_selection(jets, leps, mask_leps, cuts):
 
 	return good_jets
 
-def jet_nohiggs_selection(jets, fatjets, mask_fatjets, dr=1.2):
+def jet_nohiggs_selection(jets, mask_jets, fatjets, dr=1.2):
 	
-	nested_mask = jets.p4.match(fatjets.p4[mask_fatjets,0], matchfunc=pass_dr, dr=dr)
+	#nested_mask = jets.p4.match(fatjets.p4[mask_fatjets,0], matchfunc=pass_dr, dr=dr)
+	nested_mask = jets.match(fatjets, matchfunc=pass_dr, dr=dr)
 	jets_pass_dr = nested_mask.all()
 
-	return jets_pass_dr
+	return mask_jets & jets_pass_dr
 
 def load_puhist_target(filename):
 
@@ -187,6 +188,7 @@ def METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_row
 					else:
 						pznu[i] = tmpsol2[i]
 						#otherSol_ = tmpsol1
+	return pznu
 
 def METzCalculator(lepton, MET, mask_rows):
 
@@ -212,9 +214,8 @@ def METzCalculator(lepton, MET, mask_rows):
 	tmpsol1 = np.zeros_like(A) #(-B + np.sqrt(tmproot))/(2.0*A)
 	tmpsol2 = np.zeros_like(A) #(-B - np.sqrt(tmproot))/(2.0*A)
 	pznu = np.zeros(len(M_lep), dtype=np.float32)
-	METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_rows)
 
-	return pznu
+	return METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_rows)
 
 def hadronic_W(jets, lepW):
 
