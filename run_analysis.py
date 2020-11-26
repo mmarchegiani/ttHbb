@@ -303,10 +303,8 @@ class ttHbb(processor.ProcessorABC):
 		good_muons, veto_muons = lepton_selection(muons, parameters["muons"], args.year)
 		good_electrons, veto_electrons = lepton_selection(electrons, parameters["electrons"], args.year)
 		good_jets = jet_selection(jets, muons, (good_muons|veto_muons), parameters["jets"]) & jet_selection(jets, electrons, (good_electrons|veto_electrons), parameters["jets"])
-#	    good_jets = jet_selection(jets, muons, (veto_muons | good_muons), parameters["jets"]) & jet_selection(jets, electrons, (veto_electrons | good_electrons) , parameters["jets"])
 		bjets_resolved = good_jets & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
 		good_fatjets = jet_selection(fatjets, muons, good_muons, parameters["fatjets"]) & jet_selection(fatjets, electrons, good_electrons, parameters["fatjets"])
-#	    good_fatjets = jet_selection(fatjets, muons, (veto_muons | good_muons), parameters["fatjets"]) & jet_selection(fatjets, electrons, (veto_electrons | good_electrons), parameters["fatjets"]) #FIXME remove vet_leptons
 
 		mask_events_withFatJet = fatjets[good_fatjets].counts > 0
 		leading_fatjets = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withFatJet, dtype=int), pt=get_leading_value(fatjets[good_fatjets].pt[mask_events_withFatJet]), eta=get_leading_value(fatjets[good_fatjets].eta[mask_events_withFatJet]), phi=get_leading_value(fatjets[good_fatjets].phi[mask_events_withFatJet]), mass=get_leading_value(fatjets[good_fatjets].mass[mask_events_withFatJet]))
@@ -316,20 +314,6 @@ class ttHbb(processor.ProcessorABC):
 		nonbjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) < parameters["btagging_WP"])
 
 		# apply basic event selection -> individual categories cut later
-		"""
-		nmuons         = muons[mask_events,:][good_muons].counts
-		nelectrons     = electrons[mask_events,:][good_electrons].counts
-		nleps          = nmuons + nelectrons
-		lepton_veto    = muons[mask_events,:][veto_muons].counts + electrons[mask_events,:][veto_electrons].counts
-		njets_raw      = jets[mask_events,:].counts
-		njets          = jets[mask_events,:][nonbjets].counts
-		ngoodjets      = jets[mask_events,:][good_jets].counts
-		btags          = jets[mask_events,:][bjets].counts
-		btags_resolved = jets[mask_events,:][bjets_resolved].counts
-		nfatjets       = fatjets[mask_events,:][good_fatjets].counts
-		#nhiggs         = fatjets[mask_events,:][higgs_candidates].counts
-		"""
-
 		nmuons         = muons[good_muons].counts[mask_events]
 		nelectrons     = electrons[good_electrons].counts[mask_events]
 		nleps          = nmuons + nelectrons
@@ -391,10 +375,6 @@ class ttHbb(processor.ProcessorABC):
 		leading_lepton_eta     = get_leading_value(events.GoodMuon.eta, events.GoodElectron.eta, default=-9.)
 		leading_lepton_phi     = get_leading_value(events.GoodMuon.phi, events.GoodElectron.phi)
 		leading_lepton_mass    = get_leading_value(events.GoodMuon.mass, events.GoodElectron.mass)
-		#leading_lepton_pt      = get_leading_value(good_events.GoodMuon.pt, good_events.GoodElectron.pt)
-		#leading_lepton_eta     = get_leading_value(good_events.GoodMuon.eta, good_events.GoodElectron.eta)
-		#leading_lepton_phi     = get_leading_value(good_events.GoodMuon.phi, good_events.GoodElectron.phi)
-		#leading_lepton_mass    = get_leading_value(good_events.GoodMuon.mass,good_events.GoodElectron.mass)
 		leading_fatjet_rho     = awkward1.from_iter( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
 
 		import awkward
@@ -407,7 +387,6 @@ class ttHbb(processor.ProcessorABC):
 		leading_leptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withLepton, dtype=int), pt=leading_lepton_pt[mask_events_withLepton], eta=leading_lepton_eta[mask_events_withLepton], phi=leading_lepton_phi[mask_events_withLepton], mass=leading_lepton_mass[mask_events_withLepton])
 		higgs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withGoodFatJet, dtype=int), pt=leading_fatjet_pt[mask_events_withGoodFatJet], eta=leading_fatjet_eta[mask_events_withGoodFatJet], phi=leading_fatjet_phi[mask_events_withGoodFatJet], mass=leading_fatjet_mass[mask_events_withGoodFatJet])
 		deltaRHiggsLepton      = calc_dr(leading_leptons, higgs)
-		#deltaRHiggsLepton      = awkward1.firsts(events.GoodFatJet[mask_events_withGoodFatJet].delta_r(events.LeadingLepton[mask_events_withGoodFatJet]))
 		events.LeadingFatJet["deltaRHiggsLepton"] = deltaRHiggsLepton
 
 		# calculate weights for MC samples
@@ -445,14 +424,13 @@ class ttHbb(processor.ProcessorABC):
 		#Ws reconstruction
 		leading_leptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=leading_lepton_pt[mask_events['2J']], eta=leading_lepton_eta[mask_events['2J']], phi=leading_lepton_phi[mask_events['2J']], mass=leading_lepton_mass[mask_events['2J']])
 		METs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), pt=MET.pt[mask_events['2J']], eta=np.zeros_like(MET.pt[mask_events['2J']]), phi=MET.phi[mask_events['2J']], mass=np.zeros_like(MET.pt[mask_events['2J']]))
-		pznu = METzCalculator(leading_leptons.p4, METs.p4, mask_events['2J'])
+		pznu = METzCalculator(leading_leptons.p4, METs.p4)
 		neutrinos = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events['2J'], dtype=int), px=METs.p4.x.content, py=METs.p4.y.content, pz=pznu, mass=np.zeros_like(METs.p4.x.content))
 		lepW = leading_leptons.p4 + neutrinos.p4
 
-		good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(np.where(mask_events['2J'], events.GoodJet.counts, np.zeros_like(events.GoodJet.counts)), pt=events.GoodJet.pt[mask_events['2J']].content, eta=events.GoodJet.eta[mask_events['2J']].content, phi=events.GoodJet.phi[mask_events['2J']].content, mass=events.GoodJet.mass[mask_events['2J']].content)
-		#good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(events.GoodJet.counts[mask_events['2J']], pt=events.GoodJet.pt[mask_events['2J']].content, eta=events.GoodJet.eta[mask_events['2J']].content, phi=events.GoodJet.phi[mask_events['2J']].content, mass=events.GoodJet.mass[mask_events['2J']].content)
+		good_jets_p4 = JaggedCandidateArray.candidatesfromcounts(np.where(mask_events['2J'], events.GoodJet.counts, np.zeros_like(events.GoodJet.counts)), pt=events.GoodJet.pt[mask_events['2J']].flatten(), eta=events.GoodJet.eta[mask_events['2J']].flatten(), phi=events.GoodJet.phi[mask_events['2J']].flatten(), mass=events.GoodJet.mass[mask_events['2J']].flatten())
 
-		hadW, n_hadW = hadronic_W(good_jets_p4, lepW)
+		hadW, n_hadW = hadronic_W(good_jets_p4)
 
 		#print(awkward1.any(lepW.mass>parameters['W']['min_mass'], axis=1))
 		#mask_events['2J2W'] = mask_events['2J'] & (hadW.mass>parameters['W']['min_mass']) & (hadW.mass<parameters['W']['max_mass']) & (lepW.mass>parameters['W']['min_mass']) & (lepW.mass<parameters['W']['max_mass'])
@@ -670,7 +648,8 @@ class ttHbb(processor.ProcessorABC):
 		)
 		output["pznu"].fill(
 			dataset=dataset,
-			pznu=pznu[pznu>0],
+			#pznu=pznu[(pznu > 0) | (pznu < 0)],
+			pznu=pznu,
 		)
 
 		"""
@@ -701,8 +680,8 @@ class ttHbb(processor.ProcessorABC):
 		set_trace()
 		"""
 
-		#mask = mask_events['2J2WdeltaR']
-		mask = mask_events['2J']
+		mask = mask_events['2J2WdeltaR']
+		#mask = mask_events['2J']
 		synch_dir = "synchMatteo/"
 		if not os.path.exists(synch_dir):
 			os.makedirs(synch_dir)
@@ -719,6 +698,7 @@ class ttHbb(processor.ProcessorABC):
 	def postprocess(self, accumulator):
 
 		plot_dir = "plots/"
+		print("Saving plots in " + plot_dir)
 		histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png",
 				  "goodmuons_resolved_pt.png", "goodmuons_resolved_eta.png", "goodmuons_boosted_pt.png", "goodmuons_boosted_eta.png", "goodmuons_with_cuts_pt.png", "goodmuons_with_cuts_eta.png",
 				  "electrons_pt.png", "electrons_eta.png", "goodelectrons_pt.png", "goodelectrons_eta.png",
@@ -763,7 +743,7 @@ class ttHbb(processor.ProcessorABC):
 		plot_dir = "plots/comparison/"
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
-		print("Saving plots in " + plot_dir)
+		print("Saving histograms in " + plot_dir)
 		datasets = []
 		for item in accumulator.keys():
 			if "hist" in item:
@@ -807,6 +787,7 @@ if __name__ == "__main__":
 	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
 	#parser.add_argument('--corrections', action='store_true', help='Flag to include corrections')
 	#parser.add_argument('filenames', nargs=argparse.REMAINDER)
+	parser.add_argument('--machine', action='store', choices=['lxplus', 't3'], help="Machine: 'lxplus' or 't3'", default='lxplus')
 	args = parser.parse_args()
 
 	from definitions_analysis import parameters, eraDependentParameters, samples_info
@@ -843,6 +824,10 @@ if __name__ == "__main__":
 	samples = { "ttHTobb": f1.read().splitlines(), "TTToSemiLeptonic": f2.read().splitlines() }
 	f1.close()
 	f2.close()
+	if args.machine == 't3':
+		for sample in samples:
+			for (i, file) in enumerate(samples[sample]):
+				samples[sample][i] = file.replace('root://xrootd-cms.infn.it/', '/pnfs/psi.ch/cms/trivcat')
 	"""
 
 	samples = {
@@ -863,8 +848,7 @@ if __name__ == "__main__":
 		"Events",
 		MyProcessor,
 		processor.futures_executor,
-		{"nano": True, "workers": 1},
-		#{"nano": True, "workers": 10},
+		{"nano": True, "workers": 10},
 		chunksize=30000,
 		#maxchunks=25,
 	)

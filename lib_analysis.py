@@ -166,10 +166,10 @@ def compute_lepton_weights(leps, evaluator, SF_list, lepton_eta=None, year=None)
 	per_event_weights = ak.prod(weights, axis=1)
 	return per_event_weights
 
-def METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_rows):
+def METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu):
 	for i in range(len(tmpsol1)):
-		if not mask_rows[i]:
-			continue
+		#if not mask_rows[i]:
+		#	continue
 		if tmproot[i]<0: pznu[i] = - B[i]/(2*A[i])
 		else:
 			tmpsol1[i] = (-B[i] + np.sqrt(tmproot[i]))/(2.0*A[i])
@@ -190,7 +190,7 @@ def METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_row
 						#otherSol_ = tmpsol1
 	return pznu
 
-def METzCalculator(lepton, MET, mask_rows):
+def METzCalculator(lepton, MET):
 
 	np.seterr(invalid='ignore') # to suppress warning from nonsense numbers in masked events
 	M_W = 80.4
@@ -215,13 +215,15 @@ def METzCalculator(lepton, MET, mask_rows):
 	tmpsol2 = np.zeros_like(A) #(-B - np.sqrt(tmproot))/(2.0*A)
 	pznu = np.zeros(len(M_lep), dtype=np.float32)
 
-	return METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu, mask_rows)
+	return METzCalculator_kernel(A, B, tmproot, tmpsol1, tmpsol2, pzlep, pznu)
 
-def hadronic_W(jets, lepW):
+#def hadronic_W(jets, lepW, event):
+def hadronic_W(jets):
 
 	dijet = jets.choose(2)
-	dijet.add_attributes(mass_diff=abs(dijet.mass - ak.fill_none(ak.min(lepW.mass, axis=1), 999.9)))
-	#dijet.add_attributes(mass_diff=abs(dijet.mass - lepW.mass.content))
+	M_W = 80.4
+	#dijet.add_attributes(mass_diff=abs(dijet.mass - ak.fill_none(ak.min(lepW.mass, axis=1), 999.9)))
+	dijet.add_attributes(mass_diff=abs(dijet.mass - M_W))
 	min_akarray = ak.min(dijet.mass_diff, axis=1)
 	min_mass_diff = ak.fill_none(min_akarray, value=9999.9)
 	hadW = dijet[dijet.mass_diff <= min_mass_diff]
