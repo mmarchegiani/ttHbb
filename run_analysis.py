@@ -787,7 +787,10 @@ if __name__ == "__main__":
 	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
 	#parser.add_argument('--corrections', action='store_true', help='Flag to include corrections')
 	#parser.add_argument('filenames', nargs=argparse.REMAINDER)
-	parser.add_argument('--machine', action='store', choices=['lxplus', 't3'], help="Machine: 'lxplus' or 't3'", default='lxplus')
+	parser.add_argument('--machine', action='store', choices=['lxplus', 't3'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
+	parser.add_argument('--workers', action='store', help='Number of workers (CPUs) to use', type=int, default=10)
+	parser.add_argument('--chunksize', action='store', help='Number of events in a single chunk', type=int, default=30000)
+	parser.add_argument('--maxchunks', action='store', help='Maximum number of chunks', type=int, default=25)
 	args = parser.parse_args()
 
 	from definitions_analysis import parameters, eraDependentParameters, samples_info
@@ -818,7 +821,6 @@ if __name__ == "__main__":
 		ext.finalize()
 		evaluator = ext.make_evaluator()
 
-	"""
 	f1 = open("datasets/RunIIFall17NanoAODv7PostProc/ttHTobb_2017.txt", 'r')
 	f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTToSemiLeptonic_2017.txt", 'r')
 	samples = { "ttHTobb": f1.read().splitlines(), "TTToSemiLeptonic": f2.read().splitlines() }
@@ -828,16 +830,17 @@ if __name__ == "__main__":
 		for sample in samples:
 			for (i, file) in enumerate(samples[sample]):
 				samples[sample][i] = file.replace('root://xrootd-cms.infn.it/', '/pnfs/psi.ch/cms/trivcat')
-	"""
 
+	"""
 	samples = {
 		"ttHTobb": [
 			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_24_ttHbb.root",
 		],
-		#"TTToSemiLeptonic": [
-		#	"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_45_tt_semileptonic.root"
-		#]
+		"TTToSemiLeptonic": [
+			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_45_tt_semileptonic.root"
+		]
 	}
+	"""
 
 	MyProcessor = ttHbb()
 	#MyProcessor = ttHbb(sample=args.sample)
@@ -848,7 +851,7 @@ if __name__ == "__main__":
 		"Events",
 		MyProcessor,
 		processor.futures_executor,
-		{"nano": True, "workers": 10},
-		chunksize=30000,
-		#maxchunks=25,
+		{"nano": True, "workers": args.workers},
+		chunksize=args.chunksize,
+		maxchunks=args.maxchunks,
 	)
