@@ -1,6 +1,7 @@
 # python run_analysis.py --sample 2017
 
 import argparse
+import time
 import os
 import sys
 import json
@@ -195,12 +196,12 @@ class ttHbb(processor.ProcessorABC):
 				"entries",
 				hist.Cat("dataset", "Dataset"),
 				hist.Bin("mass", "$M_{H}$ [GeV]", np.linspace(*histogram_settings['leadAK8JetMass'])),
-				hist.Bin("rho", "${\{rho}}_{H} $", np.linspace(*histogram_settings['leadAK8JetRho'])),
+				hist.Bin("rho", r'$\rho_{H} $', np.linspace(*histogram_settings['leadAK8JetRho'])),
 			),
 			"pznu": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pznu", "$p^{Z}_{\nu}$ [GeV]", np.linspace(-300, 300, 101)),
+				hist.Bin("pznu", "$p^Z_{\nu}$ [GeV]", np.linspace(-300, 300, 101)),
 			),
 		})
 
@@ -276,13 +277,13 @@ class ttHbb(processor.ProcessorABC):
 		jets.p4 = JaggedCandidateArray.candidatesfromcounts(jets.counts, pt=jets.pt.content, eta=jets.eta.content, phi=jets.phi.content, mass=jets.mass.content)
 		fatjets.p4 = JaggedCandidateArray.candidatesfromcounts(fatjets.counts, pt=fatjets.pt.content, eta=fatjets.eta.content, phi=fatjets.phi.content, mass=fatjets.mass.content)
 		MET.p4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET.pt), pt=MET.pt, eta=np.zeros_like(MET.pt), phi=MET.phi, mass=np.zeros_like(MET.pt))
-		
+
 		"""
 		for obj in [muons, electrons, jets, fatjets, PuppiMET, MET]:
 			obj.masks = {}
 			obj.masks['all'] = np.ones_like(obj.flatten(), dtype=np.bool)
 		"""
-		
+
 		mask_events = np.ones(nEvents, dtype=np.bool)
 
 		# apply event cleaning and  PV selection
@@ -396,7 +397,7 @@ class ttHbb(processor.ProcessorABC):
 
 		if is_mc:
 			weights["nominal"] = weights["nominal"] * genWeight * parameters["lumi"] * samples_info[sample]["XS"] / samples_info[sample]["ngen_weight"][args.year]
-		
+
 			# pu corrections
 			if puWeight is not None:
 				weights['pu'] = puWeight
@@ -450,7 +451,7 @@ class ttHbb(processor.ProcessorABC):
 		leading_fatjet_tau1     = get_leading_value(events.GoodFatJet.tau1, default=999.9)
 		leading_fatjet_tau2     = get_leading_value(events.GoodFatJet.tau2)
 		leading_fatjet_tau21    = np.divide(leading_fatjet_tau2, leading_fatjet_tau1)
-		
+
 		leading_fatjet_Hbb = get_leading_value(getattr(fatjets, parameters["bbtagging_algorithm"]))
 		for m in ['2J2WdeltaR']:#, '2J2WdeltaRTau21']:#, '2J2WdeltaRTau21DDT']:
 			mask_events[f'{m}_Pass'] = mask_events[m] & (leading_fatjet_Hbb>parameters['bbtagging_WP'])
@@ -846,6 +847,7 @@ if __name__ == "__main__":
 	#MyProcessor = ttHbb(sample=args.sample)
 
 	print("Running uproot job...")
+	start = time.time()
 	result = processor.run_uproot_job(
 		samples,
 		"Events",
@@ -855,3 +857,18 @@ if __name__ == "__main__":
 		chunksize=args.chunksize,
 		maxchunks=args.maxchunks,
 	)
+	end = time.time()
+	log_dir = "logs/"
+	if not os.path.exists(log_dir):
+		os.makedirs(log_dir)
+	outf = f'{log_dir}coffea_{args.workers}workers_{args.chunksize}chunksize_{args.maxchunks}maxchunks.txt'
+	exists = os.path.isfile(outf)
+	c = 2
+	while(exists):
+		outf = outf.replace('.txt', '_{c}.txt')
+		exists = os.path.isfile(outf)
+		c += 1
+	print("Saving log in " + outf)
+	with open(outf,'w') as f:
+		f.write(f'workers:\t{args.workers}\nchunksize:\t{args.chunksize}\nmaxchunks:\t{args.maxchunks}\ntime:\t{end-start}\n')
+	f.close()
