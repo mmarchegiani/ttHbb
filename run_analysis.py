@@ -201,7 +201,7 @@ class ttHbb(processor.ProcessorABC):
 			"pznu": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pznu", "$p^Z_{\nu}$ [GeV]", np.linspace(-300, 300, 101)),
+				hist.Bin("pznu", r'$p^Z_{\nu}$ [GeV]', np.linspace(-300, 300, 101)),
 			),
 		})
 
