@@ -870,5 +870,5 @@ if __name__ == "__main__":
 		c += 1
 	print("Saving log in " + outf)
 	with open(outf,'w') as f:
-		f.write(f'workers:\t{args.workers}\nchunksize:\t{args.chunksize}\nmaxchunks:\t{args.maxchunks}\ntime:\t{end-start}\n')
+		f.write(f'machine:\t{args.machine}\nworkers:\t{args.workers}\nchunksize:\t{args.chunksize}\nmaxchunks:\t{args.maxchunks}\ntime:\t{end-start}\n')
 	f.close()
