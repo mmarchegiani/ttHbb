@@ -1,4 +1,6 @@
 __pycache__
 plots/
+logs/
+synchMatteo/
 *.bk
 test.py
