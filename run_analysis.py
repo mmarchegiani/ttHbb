@@ -698,7 +698,7 @@ class ttHbb(processor.ProcessorABC):
 
 	def postprocess(self, accumulator):
 
-		plot_dir = "plots/"
+		plot_dir = "plots/semileptonic/"
 		print("Saving plots in " + plot_dir)
 		histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png",
 				  "goodmuons_resolved_pt.png", "goodmuons_resolved_eta.png", "goodmuons_boosted_pt.png", "goodmuons_boosted_eta.png", "goodmuons_with_cuts_pt.png", "goodmuons_with_cuts_eta.png",
