@@ -37,6 +37,13 @@ def lepton_selection(leps, cuts, year):
 
 	return good_leps, veto_leps
 
+def get_charge_sum(electrons, muons):
+
+	electron_charge = ak.sum(electrons.charge)
+	muon_charge = ak.sum(muons.charge)
+
+	return electron_charge + muon_charge
+
 def get_leading_value(var1, var2=None, default=-999.9):
 
 	default = ak.from_iter(len(var1)*[default])
@@ -51,10 +58,10 @@ def get_leading_value(var1, var2=None, default=-999.9):
 		return ak.from_iter(ak.where(ak.is_none(leading), default, leading))
 
 def calc_dr2(pairs):
-	
+
 	deta = pairs.i0.eta - pairs.i1.eta
 	dphi = (pairs.i0.phi - pairs.i1.phi + np.pi) % (2*np.pi) - np.pi
-	
+
 	return deta**2 + dphi**2
 
 def calc_dr(objects1, objects2):
@@ -73,14 +80,14 @@ def jet_selection(jets, leps, mask_leps, cuts):
 	# Only jets that are more distant than dr to ALL leptons are tagged as good jets
 	jets_pass_dr = nested_mask.all()
 	good_jets = (jets.pt > cuts["pt"]) & (np.abs(jets.eta) < cuts["eta"]) & (jets.jetId >= cuts["jetId"]) & jets_pass_dr
-	
+
 	if cuts["type"] == "jet":
 		good_jets = good_jets & ( ( (jets.pt < 50) & (jets.puId >= cuts["puId"]) ) | (jets.pt >= 50) )
 
 	return good_jets
 
 def jet_nohiggs_selection(jets, mask_jets, fatjets, dr=1.2):
-	
+
 	#nested_mask = jets.p4.match(fatjets.p4[mask_fatjets,0], matchfunc=pass_dr, dr=dr)
 	nested_mask = jets.match(fatjets, matchfunc=pass_dr, dr=dr)
 	jets_pass_dr = nested_mask.all()
@@ -162,7 +169,7 @@ def compute_lepton_weights(leps, evaluator, SF_list, lepton_eta=None, year=None)
 			raise Exception(f'unknown SF name {SF}')
 		weights = weights*evaluator[SF](x, y)
 		#weights *= evaluator[SF](x, y)
-	
+
 	per_event_weights = ak.prod(weights, axis=1)
 	return per_event_weights
 
