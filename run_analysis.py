@@ -865,7 +865,7 @@ if __name__ == "__main__":
 	exists = os.path.isfile(outf)
 	c = 2
 	while(exists):
-		outf = outf.replace('.txt', '_{c}.txt')
+		outf = outf.replace('.txt', f'_{c}.txt')
 		exists = os.path.isfile(outf)
 		c += 1
 	print("Saving log in " + outf)
