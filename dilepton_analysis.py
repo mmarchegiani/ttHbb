@@ -24,39 +24,7 @@ from pdb import set_trace
 class ttHbb(processor.ProcessorABC):
 	def __init__(self):
 		#self.sample = sample
-		self.var_names = [
-		  'nleps'            ,
-		  'njets'            ,
-		  'ngoodjets'        ,
-		  'btags'            ,
-		  'btags_resolved'   ,
-		  'nfatjets'         ,
-		  'met'              ,
-		  'leading_jet_pt'   ,
-		  'leading_jet_eta'  ,
-		  'leadAK8JetMass'   ,
-		  'leadAK8JetPt'     ,
-		  'leadAK8JetEta'    ,
-		  'leadAK8JetHbb'    ,
-		  'leadAK8JetTau21'  ,
-		  'leadAK8JetRho'    ,
-		  'lepton_pt'        ,
-		  'lepton_eta'       ,
-		  'hadWPt'           ,
-		  'hadWEta'          ,
-		  'hadWMass'         ,
-		  'lepWPt'           ,
-		  'lepWEta'          ,
-		  'lepWMass'         ,
-		  'deltaRlepWHiggs'  ,
-		  'deltaRhadWHiggs'  ,
-		  'deltaRHiggsLepton',
-		  #'PV_npvsGood',
-		  'weights_ones',
-		  'weights_nominal',
-		  'weights_pu',
-		  'weights_lepton',
-		]
+		self.var_names = histogram_settings.keys()
 		self.mask_events_list = [
 		  'resolved',
 		  'basic',
@@ -161,7 +129,9 @@ class ttHbb(processor.ProcessorABC):
 				#hist.Bin("ngoodjets_nohiggs", "$N_{nohiggs}$", np.linspace(*histogram_settings['ngoodjets'])),
 				hist.Bin("nnonbjets", "$N_{nonbjets}$", np.linspace(*histogram_settings['ngoodjets'])),
 			),
-			"""
+		})
+
+		"""
 			"leptons": hist.Hist(
 				"entries",
 				hist.Cat("dataset", "Dataset"),
@@ -198,8 +168,8 @@ class ttHbb(processor.ProcessorABC):
 				hist.Bin("mass", "$M_{H}$ [GeV]", np.linspace(*histogram_settings['leadAK8JetMass'])),
 				hist.Bin("rho", "${\{rho}}_{H} $", np.linspace(*histogram_settings['leadAK8JetRho'])),
 			),
-			"""
 		})
+		"""
 
 		vars_split = ['leadAK8JetMass', 'leadAK8JetRho']
 		ptbins = np.append( np.arange(250,600,50), [600, 1000, 5000] )
@@ -511,8 +481,8 @@ class ttHbb(processor.ProcessorABC):
 		'leadAK8JetMass'    : leading_fatjet_SDmass,
 		'leadAK8JetPt'      : leading_fatjet_pt,
 		'leadAK8JetEta'     : leading_fatjet_eta,
-		'leadAK8JetHbb'     : leading_fatjet_Hbb,
-		'leadAK8JetTau21'   : leading_fatjet_tau21,
+		#'leadAK8JetHbb'     : leading_fatjet_Hbb,
+		#'leadAK8JetTau21'   : leading_fatjet_tau21,
 		'leadAK8JetRho'     : leading_fatjet_rho,
 		#'lepton_pt'         : leading_lepton_pt,
 		#'lepton_eta'        : leading_lepton_eta,
@@ -707,12 +677,11 @@ class ttHbb(processor.ProcessorABC):
 			ax.figure.savefig(plot_dir + histo, dpi=300, format="png")
 			plt.close(ax.figure)
 
+		"""
 		ax = hist.plot1d(accumulator['higgs'], overlay='dataset')
 		ax.figure.savefig(plot_dir + "deltaRHiggsLepton.png", dpi=300, format="png")
 		plt.close(ax.figure)
-		ax = hist.plot1d(accumulator['pznu'], overlay='dataset')
-		ax.figure.savefig(plot_dir + "pznu.png", dpi=300, format="png")
-		plt.close(ax.figure)
+		"""
 
 		plot_dir = "plots/comparison/"
 		if not os.path.exists(plot_dir):
@@ -767,7 +736,7 @@ if __name__ == "__main__":
 	parser.add_argument('--maxchunks', action='store', help='Maximum number of chunks', type=int, default=25)
 	args = parser.parse_args()
 
-	from definitions_analysis import parameters, eraDependentParameters, samples_info
+	from definitions_dilepton_analysis import parameters, eraDependentParameters, samples_info
 	parameters.update(eraDependentParameters[args.year])
 	if args.parameters is not None:
 		if len(args.parameters)%2 is not 0:
@@ -796,8 +765,8 @@ if __name__ == "__main__":
 		evaluator = ext.make_evaluator()
 
 	f1 = open("datasets/RunIIFall17NanoAODv7PostProc/ttHTobb_2017.txt", 'r')
-	f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTToSemiLeptonic_2017.txt", 'r')
-	samples = { "ttHTobb": f1.read().splitlines(), "TTToSemiLeptonic": f2.read().splitlines() }
+	f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTTo2L2Nu_2017.txt", 'r')
+	samples = { "ttHTobb": f1.read().splitlines(), "TTTo2L2Nu": f2.read().splitlines() }
 	f1.close()
 	f2.close()
 	if args.machine == 't3':
