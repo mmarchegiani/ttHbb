@@ -39,8 +39,8 @@ def lepton_selection(leps, cuts, year):
 
 def get_charge_sum(electrons, muons):
 
-	electron_charge = ak.sum(electrons.charge)
-	muon_charge = ak.sum(muons.charge)
+	electron_charge = ak.sum(electrons.charge, axis=1)
+	muon_charge = ak.sum(muons.charge, axis=1)
 
 	return electron_charge + muon_charge
 
