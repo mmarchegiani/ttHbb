@@ -365,6 +365,8 @@ class ttHbb(processor.ProcessorABC):
 		'goodmuons_boost_eta'		: events.GoodMuon.eta[mask_events['basic']].flatten(),
 		'goodmuons_cuts_pt'			: events.GoodMuon.pt[mask_events_OS].flatten(),
 		'goodmuons_cuts_eta'		: events.GoodMuon.eta[mask_events_OS].flatten(),
+		'electrons_pt'				: electrons.pt.flatten(),
+		'electrons_eta'				: electrons.eta.flatten(),
 		'goodelectrons_pt'			: events.GoodElectron.pt[mask_events_trigger].flatten(),
 		'goodelectrons_eta'			: events.GoodElectron.eta[mask_events_trigger].flatten(),
 		'goodelectrons_res_pt'		: events.GoodElectron.pt[mask_events['resolved']].flatten(),
@@ -384,14 +386,14 @@ class ttHbb(processor.ProcessorABC):
 		'btags_resolved'    		: btags_resolved,
 		'nfatjets'          		: nfatjets,
 		'met'               		: MET.pt,
-		'leading_jet_pt'    		: leading_jet_pt,
-		'leading_jet_eta'   		: leading_jet_eta,
-		'leadAK8JetMass'    		: leading_fatjet_SDmass,
-		'leadAK8JetPt'      		: leading_fatjet_pt,
-		'leadAK8JetEta'     		: leading_fatjet_eta,
+		#'leading_jet_pt'    		: leading_jet_pt,
+		#'leading_jet_eta'   		: leading_jet_eta,
+		#'leadAK8JetMass'    		: leading_fatjet_SDmass,
+		#'leadAK8JetPt'      		: leading_fatjet_pt,
+		#'leadAK8JetEta'     		: leading_fatjet_eta,
 		#'leadAK8JetHbb'     : leading_fatjet_Hbb,
 		#'leadAK8JetTau21'   : leading_fatjet_tau21,
-		'leadAK8JetRho'     		: leading_fatjet_rho,
+		#'leadAK8JetRho'     		: leading_fatjet_rho,
 		#'lepton_pt'         : leading_lepton_pt,
 		#'lepton_eta'        : leading_lepton_eta,
 		#'hadWPt'            : get_leading_value(hadW.pt),
@@ -441,7 +443,7 @@ class ttHbb(processor.ProcessorABC):
 
 		for var_name, var in vars_to_plot.items():
 			try:
-				print(var_name)
+				print(var_name, var)
 				output[var_name].fill(dataset=dataset, values=var)
 			except KeyError:
 				print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
