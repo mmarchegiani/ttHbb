@@ -56,7 +56,6 @@ class ttHbb(processor.ProcessorABC):
 														  	  hist.Cat("dataset", "Dataset"),
 														  	  hist.Bin("values", histogram_settings[var_name]['xlabel'], np.linspace( *histogram_settings[var_name]['binning'] ) ) ) } ))
 
-
 			"""
 		vars_split = ['leadAK8JetMass', 'leadAK8JetRho']
 		ptbins = np.append( np.arange(250,600,50), [600, 1000, 5000] )
@@ -442,6 +441,7 @@ class ttHbb(processor.ProcessorABC):
 
 		for var_name, var in vars_to_plot.items():
 			try:
+				print(var_name)
 				output[var_name].fill(dataset=dataset, values=var)
 			except KeyError:
 				print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
