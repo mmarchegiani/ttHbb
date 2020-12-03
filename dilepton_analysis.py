@@ -49,128 +49,15 @@ class ttHbb(processor.ProcessorABC):
 
 		self._accumulator = processor.dict_accumulator({
 			"sumw": processor.defaultdict_accumulator(float),
-			"muons": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_muons": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_muons_resolved": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_muons_boosted": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_muons_with_cuts": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"electrons": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_electrons": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_electrons_resolved": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_electrons_boosted": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"good_electrons_with_cuts": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{e}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{e}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"jets": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['leading_jet_pt'])),
-				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['leading_jet_eta'])),
-			),
-			"good_jets": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\mu}$ [GeV]", np.linspace(*histogram_settings['leading_jet_pt'])),
-				hist.Bin("eta", "$\eta_{\mu}$", np.linspace(*histogram_settings['leading_jet_eta'])),
-			),
-			"njets": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("njets", "$N_{jets}$", np.linspace(*histogram_settings['njets'])),
-				hist.Bin("ngoodjets", "$N_{good_jets}$", np.linspace(*histogram_settings['ngoodjets'])),
-				#hist.Bin("ngoodjets_nohiggs", "$N_{nohiggs}$", np.linspace(*histogram_settings['ngoodjets'])),
-				hist.Bin("nnonbjets", "$N_{nonbjets}$", np.linspace(*histogram_settings['ngoodjets'])),
-			),
 		})
 
-		"""
-			"leptons": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"leptons_resolved": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"leptons_boosted": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"leptons_with_cuts": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("pt", "$p^{T}_{\ell}$ [GeV]", np.linspace(*histogram_settings['lepton_pt'])),
-				hist.Bin("eta", "$\eta_{\ell}$", np.linspace(*histogram_settings['lepton_eta'])),
-			),
-			"higgs": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				#hist.Bin("pt", "$p^{T}_{H}$ [GeV]", np.linspace(*histogram_settings['leadAK8JetPt'])),
-				hist.Bin("deltaR", "$\Delta R_{H,\ell}$", np.linspace(0,15,91)),
-			),
-			"higgs_mass": hist.Hist(
-				"entries",
-				hist.Cat("dataset", "Dataset"),
-				hist.Bin("mass", "$M_{H}$ [GeV]", np.linspace(*histogram_settings['leadAK8JetMass'])),
-				hist.Bin("rho", "${\{rho}}_{H} $", np.linspace(*histogram_settings['leadAK8JetRho'])),
-			),
-		})
-		"""
+		for var_name in self.var_names:
+			self._accumulator.add(processor.dict_accumulator({var_name : hist.Hist("entries",
+														  	  hist.Cat("dataset", "Dataset"),
+														  	  hist.Bin("values", histogram_settings[var_name]['xlabel'], np.linspace( *histogram_settings[var_name]['binning'] ) ) ) } ))
 
+
+			"""
 		vars_split = ['leadAK8JetMass', 'leadAK8JetRho']
 		ptbins = np.append( np.arange(250,600,50), [600, 1000, 5000] )
 		for var_name in vars_split:
@@ -201,6 +88,7 @@ class ttHbb(processor.ProcessorABC):
 																 		  hist.Bin("values", var_name, np.linspace( *histogram_settings[var_name if not var_name.startswith('weights') else 'weights'] ) ) ) } ) )
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
+			"""
 
 	@property
 	def accumulator(self):
@@ -285,7 +173,6 @@ class ttHbb(processor.ProcessorABC):
 		nelectrons     = electrons[good_electrons].counts[mask_events]
 		nleps          = nmuons + nelectrons
 		lepton_veto    = muons[veto_muons].counts[mask_events] + electrons[veto_electrons].counts[mask_events]
-		njets_raw      = jets.counts[mask_events]
 		njets          = jets[nonbjets].counts[mask_events]
 		ngoodjets      = jets[good_jets].counts[mask_events]
 		btags          = jets[bjets].counts[mask_events]
@@ -350,11 +237,11 @@ class ttHbb(processor.ProcessorABC):
 		leading_fatjet_eta     = get_leading_value(events.GoodFatJet.eta, default=-9.)
 		leading_fatjet_phi     = get_leading_value(events.GoodFatJet.phi)
 		leading_fatjet_mass    = get_leading_value(events.GoodFatJet.mass)
+		leading_fatjet_rho     = awkward1.from_iter( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
 		#leading_lepton_pt      = get_leading_value(events.GoodMuon.pt, events.GoodElectron.pt)
 		#leading_lepton_eta     = get_leading_value(events.GoodMuon.eta, events.GoodElectron.eta, default=-9.)
 		#leading_lepton_phi     = get_leading_value(events.GoodMuon.phi, events.GoodElectron.phi)
 		#leading_lepton_mass    = get_leading_value(events.GoodMuon.mass, events.GoodElectron.mass)
-		leading_fatjet_rho     = awkward1.from_iter( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
 
 		import awkward
 		#events["LeadingLepton"] = awkward.Table(pt=leading_lepton_pt, eta=leading_lepton_eta, phi=leading_lepton_phi, mass=leading_lepton_mass)
@@ -469,21 +356,43 @@ class ttHbb(processor.ProcessorABC):
 		"""
 		############# histograms
 		vars_to_plot = {
-		'nleps'             : nleps,
-		'njets'             : njets,
-		'ngoodjets'         : ngoodjets,
-		'btags'             : btags,
-		'btags_resolved'    : btags_resolved,
-		'nfatjets'          : nfatjets,
-		'met'               : MET.pt,
-		'leading_jet_pt'    : leading_jet_pt,
-		'leading_jet_eta'   : leading_jet_eta,
-		'leadAK8JetMass'    : leading_fatjet_SDmass,
-		'leadAK8JetPt'      : leading_fatjet_pt,
-		'leadAK8JetEta'     : leading_fatjet_eta,
+		'muons_pt'					: muons.pt.flatten(),
+		'muons_eta'					: muons.eta.flatten(),
+		'goodmuons_pt'				: events.GoodMuon.pt[mask_events_trigger].flatten(),
+		'goodmuons_eta'				: events.GoodMuon.eta[mask_events_trigger].flatten(),
+		'goodmuons_res_pt'			: events.GoodMuon.pt[mask_events['resolved']].flatten(),
+		'goodmuons_res_eta'			: events.GoodMuon.eta[mask_events['resolved']].flatten(),
+		'goodmuons_boost_pt'		: events.GoodMuon.pt[mask_events['basic']].flatten(),
+		'goodmuons_boost_eta'		: events.GoodMuon.eta[mask_events['basic']].flatten(),
+		'goodmuons_cuts_pt'			: events.GoodMuon.pt[mask_events_OS].flatten(),
+		'goodmuons_cuts_eta'		: events.GoodMuon.eta[mask_events_OS].flatten(),
+		'goodelectrons_pt'			: events.GoodElectron.pt[mask_events_trigger].flatten(),
+		'goodelectrons_eta'			: events.GoodElectron.eta[mask_events_trigger].flatten(),
+		'goodelectrons_res_pt'		: events.GoodElectron.pt[mask_events['resolved']].flatten(),
+		'goodelectrons_res_eta'		: events.GoodElectron.eta[mask_events['resolved']].flatten(),
+		'goodelectrons_boost_pt'	: events.GoodElectron.pt[mask_events['basic']].flatten(),
+		'goodelectrons_boost_eta'	: events.GoodElectron.eta[mask_events['basic']].flatten(),
+		'goodelectrons_cuts_pt'		: events.GoodElectron.pt[mask_events_OS].flatten(),
+		'goodelectrons_cuts_eta'	: events.GoodElectron.eta[mask_events_OS].flatten(),
+		'jets_pt'					: jets.pt.flatten(),
+		'jets_eta'					: jets.eta.flatten(),
+		'goodjets_pt'				: events.GoodJet.pt[mask_events_trigger].flatten(),
+		'goodjets_eta'				: events.GoodJet.eta[mask_events_trigger].flatten(),
+		'nleps'             		: nleps,
+		'njets'             		: njets,
+		'ngoodjets'         		: ngoodjets,
+		'btags'             		: btags,
+		'btags_resolved'    		: btags_resolved,
+		'nfatjets'          		: nfatjets,
+		'met'               		: MET.pt,
+		'leading_jet_pt'    		: leading_jet_pt,
+		'leading_jet_eta'   		: leading_jet_eta,
+		'leadAK8JetMass'    		: leading_fatjet_SDmass,
+		'leadAK8JetPt'      		: leading_fatjet_pt,
+		'leadAK8JetEta'     		: leading_fatjet_eta,
 		#'leadAK8JetHbb'     : leading_fatjet_Hbb,
 		#'leadAK8JetTau21'   : leading_fatjet_tau21,
-		'leadAK8JetRho'     : leading_fatjet_rho,
+		'leadAK8JetRho'     		: leading_fatjet_rho,
 		#'lepton_pt'         : leading_lepton_pt,
 		#'lepton_eta'        : leading_lepton_eta,
 		#'hadWPt'            : get_leading_value(hadW.pt),
@@ -498,6 +407,7 @@ class ttHbb(processor.ProcessorABC):
 		#'PV_npvsGood'       : scalars['PV_npvsGood'],
 		}
 
+		"""
 		if is_mc:
 			for wn,w in weights.items():
 				vars_to_plot[f'weights_{wn}'] = w
@@ -528,161 +438,29 @@ class ttHbb(processor.ProcessorABC):
 						output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=var[mask], weight=w[mask])
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
-
-######################################################
-
-		output["muons"].fill(
-			dataset=dataset,
-			pt=muons.pt.flatten(),
-			eta=muons.eta.flatten(),
-		)
-		output["good_muons"].fill(
-			dataset=dataset,
-			pt=events.GoodMuon.pt[mask_events_trigger].flatten(),
-			eta=events.GoodMuon.eta[mask_events_trigger].flatten(),
-		)
-		output["good_muons_resolved"].fill(
-			dataset=dataset,
-			pt=events.GoodMuon.pt[mask_events['resolved']].flatten(),
-			eta=events.GoodMuon.eta[mask_events['resolved']].flatten(),
-		)
-		output["good_muons_boosted"].fill(
-			dataset=dataset,
-			pt=events.GoodMuon.pt[mask_events['basic']].flatten(),
-			eta=events.GoodMuon.eta[mask_events['basic']].flatten(),
-		)
-		output["good_muons_with_cuts"].fill(
-			dataset=dataset,
-			pt=events.GoodMuon.pt[mask_events_OS].flatten(),
-			eta=events.GoodMuon.eta[mask_events_OS].flatten(),
-		)
-		output["electrons"].fill(
-			dataset=dataset,
-			pt=electrons.pt.flatten(),
-			eta=electrons.eta.flatten(),
-		)
-		output["good_electrons"].fill(
-			dataset=dataset,
-			pt=events.GoodElectron.pt[mask_events_trigger].flatten(),
-			eta=events.GoodElectron.eta[mask_events_trigger].flatten(),
-		)
-		output["good_electrons_resolved"].fill(
-			dataset=dataset,
-			pt=events.GoodElectron.pt[mask_events['resolved']].flatten(),
-			eta=events.GoodElectron.eta[mask_events['resolved']].flatten(),
-		)
-		output["good_electrons_boosted"].fill(
-			dataset=dataset,
-			pt=events.GoodElectron.pt[mask_events['basic']].flatten(),
-			eta=events.GoodElectron.eta[mask_events['basic']].flatten(),
-		)
-		output["good_electrons_with_cuts"].fill(
-			dataset=dataset,
-			pt=events.GoodElectron.pt[mask_events_OS].flatten(),
-			eta=events.GoodElectron.eta[mask_events_OS].flatten(),
-		)
-		output["jets"].fill(
-			dataset=dataset,
-			pt=jets.pt.flatten(),
-			eta=jets.eta.flatten(),
-		)
-		output["good_jets"].fill(
-			dataset=dataset,
-			pt=events.GoodJet.pt[mask_events_trigger].flatten(),
-			eta=events.GoodJet.eta[mask_events_trigger].flatten(),
-		)
-		output["njets"].fill(
-			dataset=dataset,
-			njets=njets_raw,
-			ngoodjets=ngoodjets,
-			#ngoodjets_nohiggs=jets[mask_events,:][good_jets_nohiggs].counts,
-			nnonbjets=njets,
-		)
 		"""
-		output["leptons"].fill(
-			dataset=dataset,
-			pt=leading_lepton_pt[mask_events_trigger],
-			eta=leading_lepton_eta[mask_events_trigger],
-		)
-		output["leptons_resolved"].fill(
-			dataset=dataset,
-			pt=leading_lepton_pt[mask_events['resolved']],
-			eta=leading_lepton_eta[mask_events['resolved']],
-		)
-		output["leptons_boosted"].fill(
-			dataset=dataset,
-			pt=leading_lepton_pt[mask_events['basic']],
-			eta=leading_lepton_eta[mask_events['basic']],
-		)
-		output["leptons_with_cuts"].fill(
-			dataset=dataset,
-			pt=leading_lepton_pt[mask_events['2J2WdeltaR']],
-			eta=leading_lepton_eta[mask_events['2J2WdeltaR']],
-		)
-		output["higgs"].fill(
-			dataset=dataset,
-			#pt=events.LeadingFatJet.pt.flatten(),
-			deltaR=events.LeadingFatJet.deltaRHiggsLepton.flatten(),
-		)
-		output["higgs_mass"].fill(
-			dataset=dataset,
-			mass=events.LeadingFatJet.SDmass.flatten(),
-			rho=events.LeadingFatJet.rho.flatten()
-		)
-		"""
+
+		for var_name, var in vars_to_plot.items():
+			try:
+				output[var_name].fill(dataset=dataset, values=var)
+			except KeyError:
+				print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
 
 		return output
 
 	def postprocess(self, accumulator):
-
 		plot_dir = "plots/dilepton/"
 		print("Saving plots in " + plot_dir)
-		histos = ["muons_pt.png", "muons_eta.png", "goodmuons_pt.png", "goodmuons_eta.png",
-				  "goodmuons_resolved_pt.png", "goodmuons_resolved_eta.png", "goodmuons_boosted_pt.png", "goodmuons_boosted_eta.png", "goodmuons_with_cuts_pt.png", "goodmuons_with_cuts_eta.png",
-				  "electrons_pt.png", "electrons_eta.png", "goodelectrons_pt.png", "goodelectrons_eta.png",
-				  "goodelectrons_resolved_pt.png", "goodelectrons_resolved_eta.png", "goodelectrons_boosted_pt.png", "goodelectrons_boosted_eta.png", "goodelectrons_with_cuts_pt.png", "goodelectrons_with_cuts_eta.png",
-				  "jets_pt.png", "jets_eta.png", "goodjets_pt.png", "goodjets_eta.png",
-				  "njets.png", "ngoodjets.png", "nnonbjets.png"
-				  #,
-				  #"leptons_pt.png","leptons_eta.png", "leptons_resolved_pt.png","leptons_resolved_eta.png", "leptons_boosted_pt.png","leptons_boosted_eta.png", "leptons_with_cuts_pt.png","leptons_with_cuts_eta.png",
-				  #"higgs_rho.png", "higgs_mass.png"
-				  ]
-		histo_names = ['muons', 'muons', 'good_muons', 'good_muons',
-					   'good_muons_resolved', 'good_muons_resolved', 'good_muons_boosted', 'good_muons_boosted', 'good_muons_with_cuts', 'good_muons_with_cuts',
-					   'electrons', 'electrons', 'good_electrons', 'good_electrons',
-					   'good_electrons_resolved', 'good_electrons_resolved', 'good_electrons_boosted', 'good_electrons_boosted', 'good_electrons_with_cuts', 'good_electrons_with_cuts',
-					   'jets', 'jets', 'good_jets', 'good_jets', 'njets', 'njets', 'njets'
-					   #,
-					   #'leptons', 'leptons', 'leptons_resolved', 'leptons_resolved', 'leptons_boosted', 'leptons_boosted', 'leptons_with_cuts', 'leptons_with_cuts',
-					   #'higgs_mass', 'higgs_mass'
-					   ]
-		integrateover = ['eta', 'pt', 'eta', 'pt',
-						 'eta', 'pt', 'eta', 'pt', 'eta', 'pt',
-						 'eta', 'pt', 'eta', 'pt',
-						 'eta', 'pt', 'eta', 'pt', 'eta', 'pt',
-						 'eta', 'pt', 'eta', 'pt',
-						 ['ngoodjets', 'nnonbjets'], ['njets', 'nnonbjets'], ['njets', 'ngoodjets']
-						 #,
-						 #'eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt',
-						 #'mass', 'rho'
-						 ]
-		#integrateover = ['eta', 'pt', 'eta', 'pt', 'eta', 'pt', 'eta', 'pt', ('ngoodjets', 'ngoodjets_nohiggs')]
+
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
-		for (i, histo) in enumerate(histos):
-			if histo in ["njets.png", "ngoodjets.png", "nnonbjets.png"]:
-				ax = hist.plot1d(accumulator[histo_names[i]].sum(*integrateover[i]), overlay='dataset')
-			else:
-				ax = hist.plot1d(accumulator[histo_names[i]].sum(integrateover[i]), overlay='dataset')
+
+		for var_name in var_names:
+			ax = hist.plot1d(accumulator[var_name], overlay='dataset')
 			ax.figure.savefig(plot_dir + histo, dpi=300, format="png")
 			plt.close(ax.figure)
 
 		"""
-		ax = hist.plot1d(accumulator['higgs'], overlay='dataset')
-		ax.figure.savefig(plot_dir + "deltaRHiggsLepton.png", dpi=300, format="png")
-		plt.close(ax.figure)
-		"""
-
 		plot_dir = "plots/comparison/"
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
@@ -706,10 +484,7 @@ class ttHbb(processor.ProcessorABC):
 				data[histo] = d
 			with open(hist_dir + 'out_' + dataset_label + '_nominal_merged.json', 'w') as outfile:
 				json.dump(data, outfile, sort_keys=True, indent=4)
-
-			#ax = hist.plot1d(accumulator[histo], overlay='dataset')
-			#ax.figure.savefig(plot_dir + histo + ".png", dpi=300, format="png")
-			#plt.close(ax.figure)
+		"""
 		return accumulator
 
 if __name__ == "__main__":
