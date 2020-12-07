@@ -44,6 +44,24 @@ def get_charge_sum(electrons, muons):
 
 	return electron_charge + muon_charge
 
+def get_dilepton_mass(electrons, muons, default=-999.9):
+
+	nelectrons = electrons.counts
+	nmuons = muons.counts
+	default = ak.from_iter(len(electrons)*[default])
+	e_pairs = electrons.choose(2)
+	mu_pairs = muons.choose(2)
+	e_mu_pairs = electrons.cross(muons)
+	m_ee = ak.max(e_pairs.mass, axis=1)
+	m_mumu = ak.max(mu_pairs.mass, axis=1)
+	m_e_mu = ak.max(e_mu_pairs.mass, axis=1)
+
+	mll = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 2), m_ee, default)
+	mll = ak.where( ((nelectrons + nmuons) == 2) & (nmuons == 2), m_mumu, mll)
+	mll = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 1) & (nmuons == 1), m_e_mu, mll)
+
+	return ak.from_iter(mll)
+
 def get_leading_value(var1, var2=None, default=-999.9):
 
 	default = ak.from_iter(len(var1)*[default])

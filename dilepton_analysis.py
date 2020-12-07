@@ -4,6 +4,8 @@ import argparse
 import os
 import sys
 import json
+from cycler import cycler
+#from pdb import set_trace
 
 import awkward1
 import matplotlib.pyplot as plt
@@ -16,16 +18,17 @@ from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 from uproot_methods import TLorentzVectorArray
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_mass, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
 from definitions_dilepton_analysis import parameters, histogram_settings, samples_info
-
-from pdb import set_trace
 
 class ttHbb(processor.ProcessorABC):
 	def __init__(self):
 		#self.sample = sample
-		self.var_names = histogram_settings.keys()
-		self.mask_events_list = [
+		self._variables = histogram_settings['variables']
+		self._varnames = self._variables.keys()
+		self._fill_opts = histogram_settings['fill_opts']
+		self._error_opts = histogram_settings['error_opts']
+		self._mask_events_list = [
 		  'resolved',
 		  'basic',
 		  '2J',
@@ -51,10 +54,10 @@ class ttHbb(processor.ProcessorABC):
 			"sumw": processor.defaultdict_accumulator(float),
 		})
 
-		for var_name in self.var_names:
+		for var_name in self._varnames:
 			self._accumulator.add(processor.dict_accumulator({var_name : hist.Hist("entries",
 														  	  hist.Cat("dataset", "Dataset"),
-														  	  hist.Bin("values", histogram_settings[var_name]['xlabel'], np.linspace( *histogram_settings[var_name]['binning'] ) ) ) } ))
+														  	  hist.Bin("values", self._variables[var_name]['xlabel'], np.linspace( *self._variables[var_name]['binning'] ) ) ) } ))
 
 			"""
 		vars_split = ['leadAK8JetMass', 'leadAK8JetRho']
@@ -66,25 +69,25 @@ class ttHbb(processor.ProcessorABC):
 					for r in ['Pass','Fail']:
 						for o in ['','_orthogonal']:
 							mask_name = f'{m}_{r}{o}'
-							if not mask_name in self.mask_events_list: continue
+							if not mask_name in self._mask_events_list: continue
 							hist_name = f'hist_{var_name}_{mask_name}_pt{ptbins[ipt]}to{ptbins[ipt+1]}'
 							self._accumulator.add(processor.dict_accumulator({hist_name : hist.Hist("entries",
 														   					  hist.Cat("dataset", "Dataset"),
-														   					  hist.Bin("values", var_name, np.linspace( *histogram_settings[var_name] ) ) ) } ) )
+														   					  hist.Bin("values", var_name, np.linspace( *self._variables[var_name] ) ) ) } ) )
 
 		#for wn,w in weights.items():
 		for wn in ['nominal']:
 			if wn != 'nominal': continue
 			#ret[f'nevts_overlap{weight_name}'] = Histogram( [sum(weights[w]), sum(weights[w][mask_events['2J2WdeltaR']]), sum(weights[w][mask_events['resolved']]), sum(weights[w][mask_events['overlap']])], 0,0 )
-			for mask_name in self.mask_events_list:
+			for mask_name in self._mask_events_list:
 				if not 'deltaR' in mask_name: continue
-				for var_name in self.var_names:
+				for var_name in self._varnames:
 					#if (not is_mc) and ('Pass' in mask_name) and (var_name=='leadAK8JetMass') : continue
 					try:
 						hist_name = f'hist_{var_name}_{mask_name}_weights_{wn}'
 						self._accumulator.add(processor.dict_accumulator({hist_name : hist.Hist("entries",
 																 		  hist.Cat("dataset", "Dataset"),
-																 		  hist.Bin("values", var_name, np.linspace( *histogram_settings[var_name if not var_name.startswith('weights') else 'weights'] ) ) ) } ) )
+																 		  hist.Bin("values", var_name, np.linspace( *self._variables[var_name if not var_name.startswith('weights') else 'weights'] ) ) ) } ) )
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
 			"""
@@ -93,11 +96,12 @@ class ttHbb(processor.ProcessorABC):
 	def accumulator(self):
 		return self._accumulator
 
-	def process(self, events, parameters=parameters, samples_info=samples_info, is_mc=True, lumimask=None, cat=False, boosted=False, uncertainty=None, uncertaintyName=None, parametersName=None, extraCorrection=None):
+	def process(self, events, parameters=parameters, samples_info=samples_info):
 		output = self.accumulator.identity()
 		dataset = events.metadata["dataset"]
 		nEvents = events.event.size
 		sample = dataset
+		is_mc = 'genWeight' in events.columns
 		#print("Processing %d %s events" % (nEvents, dataset))
 
 		muons = events.Muon
@@ -219,12 +223,19 @@ class ttHbb(processor.ProcessorABC):
 		events["GoodJet"]     = jets[nonbjets]
 		events["GoodFatJet"]  = fatjets[good_fatjets]
 		charge_sum = get_charge_sum(events.GoodElectron, events.GoodMuon)
+		mll = get_dilepton_mass(electrons.p4, muons.p4)
+		SFOS = ((nmuons == 2) & (nelectrons == 0)) | ((nmuons == 0) & (nelectrons == 2))
+		not_SFOS = (nmuons == 1) & (nelectrons == 1)
 
 		# for reference, this is the selection for the resolved analysis
-		mask_events_res   = mask_events & (nleps == 2) & (lepton_veto == 0) & (charge_sum == 0) & (ngoodjets >= 2) & (btags_resolved > 1) & (MET.pt > 40)
+		mask_events_res   = (mask_events & (nleps == 2) & (lepton_veto == 0) & (charge_sum == 0) &
+							(ngoodjets >= 2) & (btags_resolved > 1) & (MET.pt > 40) &
+							(mll > 20) & ((SFOS & ((mll < 76) | (mll > 106))) | not_SFOS) )
 		# apply basic event selection
 		#mask_events_higgs = mask_events & (nleps == 1) & (MET.pt > 20) & (nhiggs > 0) & (njets > 1)  # & np.invert( (njets >= 4) & (btags >=2) ) & (lepton_veto == 0)
-		mask_events_boost = mask_events & (nleps == 2) & (lepton_veto == 0) & (charge_sum == 0) & (MET.pt > parameters['met']) & (nfatjets > 0) & (btags >= parameters['btags']) # & (btags_resolved < 3)# & (njets > 1)  # & np.invert( (njets >= 4)  )
+		mask_events_boost = (mask_events & (nleps == 2) & (lepton_veto == 0) & (charge_sum == 0) &
+							(MET.pt > parameters['met']) & (nfatjets > 0) & (btags >= parameters['btags']) &
+							(mll > 20) & ((SFOS & ((mll < 76) | (mll > 106))) | not_SFOS) ) # & (btags_resolved < 3)# & (njets > 1)  # & np.invert( (njets >= 4)  )
 		mask_events_OS    = (mask_events_res | mask_events_boost)
 
 		# calculate basic variables
@@ -283,8 +294,10 @@ class ttHbb(processor.ProcessorABC):
 			#weights["nominal"] = weights["nominal"] * weights['lepton']
 
 		mask_events = {
+		  'trigger'  : mask_events_trigger,
 		  'resolved' : mask_events_res,
-		  'basic'    : mask_events_boost
+		  'basic'    : mask_events_boost,
+		  'joint'    : mask_events_OS
 		}
 		#mask_events['2J']   = mask_events['basic'] & (njets>1)
 
@@ -346,54 +359,67 @@ class ttHbb(processor.ProcessorABC):
 				for vn,v in vars2d.items():
 					hist, binsx, binsy = np.histogram2d(v[m], btags_resolved[m],\
 							bins=(\
-							np.linspace(*histogram_settings[vn]),\
-							np.linspace(*histogram_settings['btags_resolved']),\
+							np.linspace(*self._variables[vn]),\
+							np.linspace(*self._variables['btags_resolved']),\
 							),\
 							weights=weights["nominal"][m]\
 							)
-					ret[f'hist2d_{vn}VSbtags_{mn}'] = Histogram( hist, hist, (*histogram_settings[vn],*histogram_settings['btags_resolved']) )
+					ret[f'hist2d_{vn}VSbtags_{mn}'] = Histogram( hist, hist, (*self._variables[vn],*self._variables['btags_resolved']) )
 		"""
 		############# histograms
 		vars_to_plot = {
 		'muons_pt'					: muons.pt.flatten(),
 		'muons_eta'					: muons.eta.flatten(),
-		'goodmuons_pt'				: events.GoodMuon.pt[mask_events_trigger].flatten(),
-		'goodmuons_eta'				: events.GoodMuon.eta[mask_events_trigger].flatten(),
+		'goodmuons_pt'				: events.GoodMuon.pt[mask_events['trigger']].flatten(),
+		'goodmuons_eta'				: events.GoodMuon.eta[mask_events['trigger']].flatten(),
 		'goodmuons_res_pt'			: events.GoodMuon.pt[mask_events['resolved']].flatten(),
 		'goodmuons_res_eta'			: events.GoodMuon.eta[mask_events['resolved']].flatten(),
 		'goodmuons_boost_pt'		: events.GoodMuon.pt[mask_events['basic']].flatten(),
 		'goodmuons_boost_eta'		: events.GoodMuon.eta[mask_events['basic']].flatten(),
-		'goodmuons_cuts_pt'			: events.GoodMuon.pt[mask_events_OS].flatten(),
-		'goodmuons_cuts_eta'		: events.GoodMuon.eta[mask_events_OS].flatten(),
+		'goodmuons_cuts_pt'			: events.GoodMuon.pt[mask_events['joint']].flatten(),
+		'goodmuons_cuts_eta'		: events.GoodMuon.eta[mask_events['joint']].flatten(),
 		'electrons_pt'				: electrons.pt.flatten(),
 		'electrons_eta'				: electrons.eta.flatten(),
-		'goodelectrons_pt'			: events.GoodElectron.pt[mask_events_trigger].flatten(),
-		'goodelectrons_eta'			: events.GoodElectron.eta[mask_events_trigger].flatten(),
+		'goodelectrons_pt'			: events.GoodElectron.pt[mask_events['trigger']].flatten(),
+		'goodelectrons_eta'			: events.GoodElectron.eta[mask_events['trigger']].flatten(),
 		'goodelectrons_res_pt'		: events.GoodElectron.pt[mask_events['resolved']].flatten(),
 		'goodelectrons_res_eta'		: events.GoodElectron.eta[mask_events['resolved']].flatten(),
 		'goodelectrons_boost_pt'	: events.GoodElectron.pt[mask_events['basic']].flatten(),
 		'goodelectrons_boost_eta'	: events.GoodElectron.eta[mask_events['basic']].flatten(),
-		'goodelectrons_cuts_pt'		: events.GoodElectron.pt[mask_events_OS].flatten(),
-		'goodelectrons_cuts_eta'	: events.GoodElectron.eta[mask_events_OS].flatten(),
+		'goodelectrons_cuts_pt'		: events.GoodElectron.pt[mask_events['joint']].flatten(),
+		'goodelectrons_cuts_eta'	: events.GoodElectron.eta[mask_events['joint']].flatten(),
 		'jets_pt'					: jets.pt.flatten(),
 		'jets_eta'					: jets.eta.flatten(),
-		'goodjets_pt'				: events.GoodJet.pt[mask_events_trigger].flatten(),
-		'goodjets_eta'				: events.GoodJet.eta[mask_events_trigger].flatten(),
+		'goodjets_pt'				: events.GoodJet.pt[mask_events['trigger']].flatten(),
+		'goodjets_eta'				: events.GoodJet.eta[mask_events['trigger']].flatten(),
+		'goodjets_cuts_pt'			: events.GoodJet.pt[mask_events['joint']].flatten(),
+		'goodjets_cuts_eta'			: events.GoodJet.eta[mask_events['joint']].flatten(),
 		'nleps'             		: nleps,
+		'nleps_cuts'             	: nleps[mask_events['joint']],
 		'njets'             		: njets,
+		'njets_cuts'             	: njets[mask_events['joint']],
 		'ngoodjets'         		: ngoodjets,
+		'ngoodjets_cuts'      		: ngoodjets[mask_events['joint']],
 		'btags'             		: btags,
+		'btags_cuts'           		: btags[mask_events['joint']],
 		'btags_resolved'    		: btags_resolved,
+		'btags_resolved_cuts'  		: btags_resolved[mask_events['joint']],
 		'nfatjets'          		: nfatjets,
-		'met'               		: MET.pt,
-		#'leading_jet_pt'    		: leading_jet_pt,
-		#'leading_jet_eta'   		: leading_jet_eta,
-		#'leadAK8JetMass'    		: leading_fatjet_SDmass,
-		#'leadAK8JetPt'      		: leading_fatjet_pt,
-		#'leadAK8JetEta'     		: leading_fatjet_eta,
-		#'leadAK8JetHbb'     : leading_fatjet_Hbb,
-		#'leadAK8JetTau21'   : leading_fatjet_tau21,
-		#'leadAK8JetRho'     		: leading_fatjet_rho,
+		'nfatjets_cuts'        		: nfatjets[mask_events['joint']],
+		'charge_sum'				: charge_sum,
+		'charge_sum_cuts'			: charge_sum[mask_events['joint']],
+		'met'               		: MET.pt.flatten(),
+		'met_cuts'             		: MET.pt[mask_events['joint']].flatten(),
+		'mll'						: mll,
+		'mll_cuts'					: mll[mask_events['joint']],
+		'leading_jet_pt'    		: leading_jet_pt[mask_events['joint']],
+		'leading_jet_eta'   		: leading_jet_eta[mask_events['joint']],
+		'leadAK8JetMass'    		: leading_fatjet_SDmass[mask_events['joint']],
+		'leadAK8JetPt'      		: leading_fatjet_pt[mask_events['joint']],
+		'leadAK8JetEta'     		: leading_fatjet_eta[mask_events['joint']],
+		#'leadAK8JetHbb'     		: leading_fatjet_Hbb[mask_events['joint']],
+		#'leadAK8JetTau21'   		: leading_fatjet_tau21[mask_events['joint']],
+		'leadAK8JetRho'     		: leading_fatjet_rho[mask_events['joint']],
 		#'lepton_pt'         : leading_lepton_pt,
 		#'lepton_eta'        : leading_lepton_eta,
 		#'hadWPt'            : get_leading_value(hadW.pt),
@@ -443,7 +469,6 @@ class ttHbb(processor.ProcessorABC):
 
 		for var_name, var in vars_to_plot.items():
 			try:
-				print(var_name, var)
 				output[var_name].fill(dataset=dataset, values=var)
 			except KeyError:
 				print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
@@ -457,9 +482,11 @@ class ttHbb(processor.ProcessorABC):
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
 
-		for var_name in var_names:
-			ax = hist.plot1d(accumulator[var_name], overlay='dataset')
-			ax.figure.savefig(plot_dir + histo, dpi=300, format="png")
+		for var_name in self._varnames:
+			fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,6))
+			hist.plot1d(accumulator[var_name], overlay='dataset', fill_opts=self._fill_opts, error_opts=self._error_opts)
+			plt.xlim(*self._variables[var_name]['xlim'])
+			fig.savefig(plot_dir + var_name + ".png", dpi=300, format="png")
 			plt.close(ax.figure)
 
 		"""
