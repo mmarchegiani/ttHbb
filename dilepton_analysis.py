@@ -172,10 +172,15 @@ class ttHbb(processor.ProcessorABC):
 		nonbjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) < parameters["btagging_WP"])
 
 		# apply basic event selection -> individual categories cut later
-		nmuons         = muons[good_muons].counts[mask_events]
-		nelectrons     = electrons[good_electrons].counts[mask_events]
+		#nmuons         = muons[good_muons].counts[mask_events]
+		#nelectrons     = electrons[good_electrons].counts[mask_events]
+		ngoodmuons     = muons[good_muons].counts[mask_events]
+		ngoodelectrons = electrons[good_electrons].counts[mask_events]
+		nmuons         = muons[good_muons | veto_muons].counts[mask_events]
+		nelectrons     = electrons[good_electrons | veto_electrons].counts[mask_events]
+		ngoodleps      = ngoodmuons + ngoodelectrons
 		nleps          = nmuons + nelectrons
-		lepton_veto    = muons[veto_muons].counts[mask_events] + electrons[veto_electrons].counts[mask_events]
+		#lepton_veto    = muons[veto_muons].counts[mask_events] + electrons[veto_electrons].counts[mask_events]
 		njets          = jets[nonbjets].counts[mask_events]
 		ngoodjets      = jets[good_jets].counts[mask_events]
 		btags          = jets[bjets].counts[mask_events]
@@ -184,6 +189,9 @@ class ttHbb(processor.ProcessorABC):
 		#nhiggs         = fatjets[higgs_candidates].counts[mask_events]
 
 		# trigger logic
+		#trigger_el = (nleps==2) & (nelectrons==2)
+		#trigger_el_mu = (nleps==2) & (nelectrons==1) & (nmuons==1)
+		#trigger_mu = (nleps==2) & (nmuons==2)
 		trigger_el = (nleps==2) & (nelectrons==2)
 		trigger_el_mu = (nleps==2) & (nelectrons==1) & (nmuons==1)
 		trigger_mu = (nleps==2) & (nmuons==2)
@@ -218,22 +226,24 @@ class ttHbb(processor.ProcessorABC):
 		mask_events_trigger = mask_events
 
 		# select good objects
-		events["GoodMuon"]    = muons[good_muons]
-		events["GoodElectron"]= electrons[good_electrons]
-		events["GoodJet"]     = jets[nonbjets]
-		events["GoodFatJet"]  = fatjets[good_fatjets]
+		#events["GoodMuon"]    = muons[good_muons]
+		#events["GoodElectron"]= electrons[good_electrons]
+		events["GoodMuon"]     = muons[good_muons | veto_muons]
+		events["GoodElectron"] = electrons[good_electrons | veto_electrons]
+		events["GoodJet"]      = jets[nonbjets]
+		events["GoodFatJet"]   = fatjets[good_fatjets]
 		charge_sum = get_charge_sum(events.GoodElectron, events.GoodMuon)
 		mll = get_dilepton_mass(electrons.p4, muons.p4)
 		SFOS = ((nmuons == 2) & (nelectrons == 0)) | ((nmuons == 0) & (nelectrons == 2))
 		not_SFOS = (nmuons == 1) & (nelectrons == 1)
 
 		# for reference, this is the selection for the resolved analysis
-		mask_events_res   = (mask_events & (nleps == 2) & (lepton_veto == 0) & (charge_sum == 0) &
+		mask_events_res   = (mask_events & (nleps == 2) & (ngoodleps >= 1) & (charge_sum == 0) &
 							(ngoodjets >= 2) & (btags_resolved > 1) & (MET.pt > 40) &
 							(mll > 20) & ((SFOS & ((mll < 76) | (mll > 106))) | not_SFOS) )
 		# apply basic event selection
 		#mask_events_higgs = mask_events & (nleps == 1) & (MET.pt > 20) & (nhiggs > 0) & (njets > 1)  # & np.invert( (njets >= 4) & (btags >=2) ) & (lepton_veto == 0)
-		mask_events_boost = (mask_events & (nleps == 2) & (lepton_veto == 0) & (charge_sum == 0) &
+		mask_events_boost = (mask_events & (nleps == 2) & (ngoodleps >= 1) & (charge_sum == 0) &
 							(MET.pt > parameters['met']) & (nfatjets > 0) & (btags >= parameters['btags']) &
 							(mll > 20) & ((SFOS & ((mll < 76) | (mll > 106))) | not_SFOS) ) # & (btags_resolved < 3)# & (njets > 1)  # & np.invert( (njets >= 4)  )
 		mask_events_OS    = (mask_events_res | mask_events_boost)
@@ -415,11 +425,17 @@ class ttHbb(processor.ProcessorABC):
 		'leading_jet_pt'    		: leading_jet_pt[mask_events['joint']],
 		'leading_jet_eta'   		: leading_jet_eta[mask_events['joint']],
 		'leadAK8JetMass'    		: leading_fatjet_SDmass[mask_events['joint']],
+		'leadAK8JetMass_boost' 		: leading_fatjet_SDmass[mask_events['basic']],
 		'leadAK8JetPt'      		: leading_fatjet_pt[mask_events['joint']],
+		'leadAK8JetPt_boost'   		: leading_fatjet_pt[mask_events['basic']],
 		'leadAK8JetEta'     		: leading_fatjet_eta[mask_events['joint']],
+		'leadAK8JetEta_boost'  		: leading_fatjet_eta[mask_events['basic']],
 		#'leadAK8JetHbb'     		: leading_fatjet_Hbb[mask_events['joint']],
+		#'leadAK8JetHbb_boost' 		: leading_fatjet_Hbb[mask_events['basic']],
 		#'leadAK8JetTau21'   		: leading_fatjet_tau21[mask_events['joint']],
+		#'leadAK8JetTau21_boost'	: leading_fatjet_tau21[mask_events['basic']],
 		'leadAK8JetRho'     		: leading_fatjet_rho[mask_events['joint']],
+		'leadAK8JetRho_boost'   	: leading_fatjet_rho[mask_events['basic']],
 		#'lepton_pt'         : leading_lepton_pt,
 		#'lepton_eta'        : leading_lepton_eta,
 		#'hadWPt'            : get_leading_value(hadW.pt),
