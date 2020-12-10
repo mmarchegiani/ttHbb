@@ -255,3 +255,34 @@ def hadronic_W(jets):
 	n_hadW = np.array(np.invert(ak.is_none(min_akarray)), dtype=int)
 
 	return hadW, n_hadW
+
+def pnuCalculator(l, l_bar, b, b_bar, MET):
+
+	M_W = 80.4
+	M_t = 173.1
+	M_b = 4.2
+
+	a1 = ( (b.energy + l_bar.energy)*(M_W**2 - l_bar.mass**2)
+		   - l_bar.energy*(M_t**2 - M_b**2 - l_bar.mass**2)
+		   + 2*b.energy*l_bar.energy**2 - 2*l_bar.energy*(b.px*l_bar.px + b.py*l_bar.py + b.pz*l_bar.pz) )
+	a2 = 2*(b.energy*l_bar.px - l_bar.energy*b.px)
+	a3 = 2*(b.energy*l_bar.py - l_bar.energy*b.py)
+	a4 = 2*(b.energy*l_bar.pz - l_bar.energy*b.pz)
+
+	b1 = ( (b_bar.energy + l.energy)*(M_W**2 - l.mass**2)
+		   - l.energy*(M_t**2 - M_b**2 - l.mass**2)
+		   + 2*b_bar.energy*l.energy**2 - 2*l.energy*(b_bar.px*l.px + b_bar.py*l.py + b_bar.pz*l.pz) )
+	b2 = 2*(b_bar.energy*l.px - l.energy*b_bar.px)
+	b3 = 2*(b_bar.energy*l.py - l.energy*b_bar.py)
+	b4 = 2*(b_bar.energy*l.pz - l.energy*b_bar.pz)
+
+	F = (M_W**2 - l_bar.mass**2)
+	pt2 = (l_bar.energy**2 - l_bar.pz**2)
+	A1 = a1/a4
+	A2 = a2/a4
+	A12 = a1*a2/a4**2
+
+	c22 = ( F**2 - 4*pt2*A1**2
+	        - 4*F*l_bar.pz*A1 )
+	c21 = ( 4*F*(l_bar.pz - l_bar.pz*A2)
+	        - 8*pt2*A12 - 8*l_bar.px*l_bar.pz*A1)
