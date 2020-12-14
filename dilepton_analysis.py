@@ -133,7 +133,7 @@ class ttHbb(processor.ProcessorABC):
 		electrons.p4 = JaggedCandidateArray.candidatesfromcounts(electrons.counts, pt=electrons.pt.content, eta=electrons.eta.content, phi=electrons.phi.content, mass=electrons.mass.content)
 		jets.p4 = JaggedCandidateArray.candidatesfromcounts(jets.counts, pt=jets.pt.content, eta=jets.eta.content, phi=jets.phi.content, mass=jets.mass.content)
 		fatjets.p4 = JaggedCandidateArray.candidatesfromcounts(fatjets.counts, pt=fatjets.pt.content, eta=fatjets.eta.content, phi=fatjets.phi.content, mass=fatjets.mass.content)
-		MET.p4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET.pt), pt=MET.pt, eta=np.zeros_like(MET.pt), phi=MET.phi, mass=np.zeros_like(MET.pt))
+		#MET.p4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET.pt), pt=MET.pt, eta=np.zeros_like(MET.pt), phi=MET.phi, mass=np.zeros_like(MET.pt))
 
 		"""
 		for obj in [muons, electrons, jets, fatjets, PuppiMET, MET]:
@@ -233,7 +233,9 @@ class ttHbb(processor.ProcessorABC):
 		events["GoodJet"]      = jets[nonbjets]
 		events["GoodFatJet"]   = fatjets[good_fatjets]
 		charge_sum = get_charge_sum(events.GoodElectron, events.GoodMuon)
-		mll = get_dilepton_mass(electrons.p4, muons.p4)
+		goodmuons = JaggedCandidateArray.candidatesfromcounts(events.GoodMuon.counts, pt=events.GoodMuon.pt.flatten(), eta=events.GoodMuon.eta.flatten(), phi=events.GoodMuon.phi.flatten(), mass=events.GoodMuon.mass.flatten())
+		goodelectrons = JaggedCandidateArray.candidatesfromcounts(events.GoodElectron.counts, pt=events.GoodElectron.pt.flatten(), eta=events.GoodElectron.eta.flatten(), phi=events.GoodElectron.phi.flatten(), mass=events.GoodElectron.mass.flatten())
+		mll = get_dilepton_mass(goodelectrons, goodmuons)
 		SFOS = ((nmuons == 2) & (nelectrons == 0)) | ((nmuons == 0) & (nelectrons == 2))
 		not_SFOS = (nmuons == 1) & (nelectrons == 1)
 
@@ -263,9 +265,8 @@ class ttHbb(processor.ProcessorABC):
 		#leading_lepton_phi     = get_leading_value(events.GoodMuon.phi, events.GoodElectron.phi)
 		#leading_lepton_mass    = get_leading_value(events.GoodMuon.mass, events.GoodElectron.mass)
 
-		import awkward
-		#events["LeadingLepton"] = awkward.Table(pt=leading_lepton_pt, eta=leading_lepton_eta, phi=leading_lepton_phi, mass=leading_lepton_mass)
-		events["LeadingFatJet"] = awkward.Table(pt=leading_fatjet_pt, eta=leading_fatjet_eta, phi=leading_fatjet_phi, mass=leading_fatjet_mass, SDmass=leading_fatjet_SDmass, rho=leading_fatjet_rho)
+		#mask_events_withOS = (charge_sum == 0) & (SFOS | not_SFOS)
+		#leptons_minus = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withOS, dtype=int), pt=leading_lepton_pt[mask_events_withLepton], eta=leading_lepton_eta[mask_events_withLepton], phi=leading_lepton_phi[mask_events_withLepton], mass=leading_lepton_mass[mask_events_withLepton])
 
 		"""
 		#good_events           = events[mask_events]
