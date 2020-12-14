@@ -62,6 +62,22 @@ def get_dilepton_mass(electrons, muons, default=-999.9):
 
 	return ak.from_iter(mll)
 
+def get_charged_var(varname, electrons, muons, charge, mask, default=-999.9):
+
+	nelectrons = electrons.counts
+	nmuons = muons.counts
+	default = ak.from_iter(len(electrons)*[[default]])
+	mask_ee = mask & ((nelectrons + nmuons) == 2) & (nelectrons == 2)
+	mask_mumu = mask & ((nelectrons + nmuons) == 2) & (nmuons == 2)
+	mask_emu = mask & ((nelectrons + nmuons) == 2) & (nelectrons == 1) & (nmuons == 1)
+
+	var = ak.where(mask_ee, electrons[varname][electrons.charge == charge], default)
+	var = ak.where(mask_mumu, muons[varname][muons.charge == charge], var)
+	var = ak.where(mask_emu & ak.any(electrons.charge == charge, axis=1), electrons[varname][electrons.charge == charge], var)
+	var = ak.where(mask_emu & ak.any(muons.charge == charge, axis=1), muons[varname][muons.charge == charge], var)
+
+	return ak.from_iter(ak.flatten(var))
+
 def get_leading_value(var1, var2=None, default=-999.9):
 
 	default = ak.from_iter(len(var1)*[default])

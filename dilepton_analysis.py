@@ -18,7 +18,7 @@ from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 from uproot_methods import TLorentzVectorArray
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_mass, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
 from definitions_dilepton_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
@@ -236,8 +236,8 @@ class ttHbb(processor.ProcessorABC):
 		goodmuons = JaggedCandidateArray.candidatesfromcounts(events.GoodMuon.counts, pt=events.GoodMuon.pt.flatten(), eta=events.GoodMuon.eta.flatten(), phi=events.GoodMuon.phi.flatten(), mass=events.GoodMuon.mass.flatten())
 		goodelectrons = JaggedCandidateArray.candidatesfromcounts(events.GoodElectron.counts, pt=events.GoodElectron.pt.flatten(), eta=events.GoodElectron.eta.flatten(), phi=events.GoodElectron.phi.flatten(), mass=events.GoodElectron.mass.flatten())
 		mll = get_dilepton_mass(goodelectrons, goodmuons)
-		SFOS = ((nmuons == 2) & (nelectrons == 0)) | ((nmuons == 0) & (nelectrons == 2))
-		not_SFOS = (nmuons == 1) & (nelectrons == 1)
+		SFOS = ( ((nmuons == 2) & (nelectrons == 0)) | ((nmuons == 0) & (nelectrons == 2)) ) & (charge_sum == 0)
+		not_SFOS = ( (nmuons == 1) & (nelectrons == 1) ) & (charge_sum == 0)
 
 		# for reference, this is the selection for the resolved analysis
 		mask_events_res   = (mask_events & (nleps == 2) & (ngoodleps >= 1) & (charge_sum == 0) &
@@ -260,13 +260,18 @@ class ttHbb(processor.ProcessorABC):
 		leading_fatjet_phi     = get_leading_value(events.GoodFatJet.phi)
 		leading_fatjet_mass    = get_leading_value(events.GoodFatJet.mass)
 		leading_fatjet_rho     = awkward1.from_iter( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
-		#leading_lepton_pt      = get_leading_value(events.GoodMuon.pt, events.GoodElectron.pt)
-		#leading_lepton_eta     = get_leading_value(events.GoodMuon.eta, events.GoodElectron.eta, default=-9.)
-		#leading_lepton_phi     = get_leading_value(events.GoodMuon.phi, events.GoodElectron.phi)
-		#leading_lepton_mass    = get_leading_value(events.GoodMuon.mass, events.GoodElectron.mass)
-
-		#mask_events_withOS = (charge_sum == 0) & (SFOS | not_SFOS)
-		#leptons_minus = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withOS, dtype=int), pt=leading_lepton_pt[mask_events_withLepton], eta=leading_lepton_eta[mask_events_withLepton], phi=leading_lepton_phi[mask_events_withLepton], mass=leading_lepton_mass[mask_events_withLepton])
+		lepton_plus_pt         = get_charged_var("pt", events.GoodElectron, events.GoodMuon, +1, SFOS | not_SFOS)
+		lepton_plus_eta        = get_charged_var("eta", events.GoodElectron, events.GoodMuon, +1, SFOS | not_SFOS, default=-9.)
+		lepton_plus_phi        = get_charged_var("phi", events.GoodElectron, events.GoodMuon, +1, SFOS | not_SFOS)
+		lepton_plus_mass       = get_charged_var("mass", events.GoodElectron, events.GoodMuon, +1, SFOS | not_SFOS)
+		lepton_minus_pt        = get_charged_var("pt", events.GoodElectron, events.GoodMuon, -1, SFOS | not_SFOS)
+		lepton_minus_eta       = get_charged_var("eta", events.GoodElectron, events.GoodMuon, -1, SFOS | not_SFOS, default=-9.)
+		lepton_minus_phi       = get_charged_var("phi", events.GoodElectron, events.GoodMuon, -1, SFOS | not_SFOS)
+		lepton_minus_mass      = get_charged_var("mass", events.GoodElectron, events.GoodMuon, -1, SFOS | not_SFOS)
+		#leading_lepton_pt      = get_leading_value(lepton_plus_pt, lepton_minus_pt)
+		#leading_lepton_eta     = get_leading_value(lepton_plus_eta, lepton_minus_eta)
+		#leading_lepton_phi     = get_leading_value(lepton_plus_phi, lepton_minus_phi)
+		#leading_lepton_mass    = get_leading_value(lepton_plus_mass, lepton_minus_mass)
 
 		"""
 		#good_events           = events[mask_events]
@@ -437,8 +442,10 @@ class ttHbb(processor.ProcessorABC):
 		#'leadAK8JetTau21_boost'	: leading_fatjet_tau21[mask_events['basic']],
 		'leadAK8JetRho'     		: leading_fatjet_rho[mask_events['joint']],
 		'leadAK8JetRho_boost'   	: leading_fatjet_rho[mask_events['basic']],
-		#'lepton_pt'         : leading_lepton_pt,
-		#'lepton_eta'        : leading_lepton_eta,
+		'lepton_plus_pt'            : lepton_plus_pt[mask_events['joint']],
+		'lepton_plus_eta'           : lepton_plus_eta[mask_events['joint']],
+		'lepton_minus_pt'           : lepton_minus_pt[mask_events['joint']],
+		'lepton_minus_eta'          : lepton_minus_eta[mask_events['joint']],
 		#'hadWPt'            : get_leading_value(hadW.pt),
 		#'hadWEta'           : get_leading_value(hadW.eta),
 		#'hadWMass'          : get_leading_value(hadW.mass),
