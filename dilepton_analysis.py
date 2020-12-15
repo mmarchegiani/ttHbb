@@ -268,10 +268,11 @@ class ttHbb(processor.ProcessorABC):
 		lepton_minus_eta       = get_charged_var("eta", events.GoodElectron, events.GoodMuon, -1, SFOS | not_SFOS, default=-9.)
 		lepton_minus_phi       = get_charged_var("phi", events.GoodElectron, events.GoodMuon, -1, SFOS | not_SFOS)
 		lepton_minus_mass      = get_charged_var("mass", events.GoodElectron, events.GoodMuon, -1, SFOS | not_SFOS)
-		#leading_lepton_pt      = get_leading_value(lepton_plus_pt, lepton_minus_pt)
-		#leading_lepton_eta     = get_leading_value(lepton_plus_eta, lepton_minus_eta)
-		#leading_lepton_phi     = get_leading_value(lepton_plus_phi, lepton_minus_phi)
-		#leading_lepton_mass    = get_leading_value(lepton_plus_mass, lepton_minus_mass)
+		antilepton_is_leading  = (lepton_plus_pt > lepton_minus_pt)
+		leading_lepton_pt      = awkward1.where(antilepton_is_leading, lepton_plus_pt, lepton_minus_pt)
+		leading_lepton_eta     = awkward1.where(antilepton_is_leading, lepton_plus_eta, lepton_minus_eta)
+		leading_lepton_phi     = awkward1.where(antilepton_is_leading, lepton_plus_phi, lepton_minus_phi)
+		leading_lepton_mass    = awkward1.where(antilepton_is_leading, lepton_plus_mass, lepton_minus_mass)
 
 		"""
 		#good_events           = events[mask_events]
@@ -446,6 +447,8 @@ class ttHbb(processor.ProcessorABC):
 		'lepton_plus_eta'           : lepton_plus_eta[mask_events['joint']],
 		'lepton_minus_pt'           : lepton_minus_pt[mask_events['joint']],
 		'lepton_minus_eta'          : lepton_minus_eta[mask_events['joint']],
+		'leading_lepton_pt'         : leading_lepton_pt[mask_events['joint']],
+		'leading_lepton_eta'        : leading_lepton_eta[mask_events['joint']],
 		#'hadWPt'            : get_leading_value(hadW.pt),
 		#'hadWEta'           : get_leading_value(hadW.eta),
 		#'hadWMass'          : get_leading_value(hadW.mass),
