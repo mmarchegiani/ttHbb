@@ -44,33 +44,46 @@ def get_charge_sum(electrons, muons):
 
 	return electron_charge + muon_charge
 
-def get_dilepton_mass(electrons, muons, default=-999.9):
+def get_dilepton_vars(electrons, muons, default=-999.9):
 
 	nelectrons = electrons.counts
 	nmuons = muons.counts
 	default = ak.from_iter(len(electrons)*[default])
-	#default_pairs = ak.from_iter(len(electrons)*[])
 	e_pairs = electrons.choose(2)
 	mu_pairs = muons.choose(2)
 	e_mu_pairs = electrons.cross(muons)
 
-	#lepton_pairs = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 2), e_pairs, default_pairs )
-	#lepton_pairs = ak.where( ((nelectrons + nmuons) == 2) & (nmuons == 2), mu_pairs, lepton_pairs )
-	#lepton_pairs = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 1) & (nmuons == 1), e_mu_pairs, lepton_pairs )
 
-	#print("lepton_pairs.mass:", lepton_pairs.mass)
+	def get_var(varname):
+		
+		var_ee   = ak.max(getattr(e_pairs, varname), axis=1)
+		var_mumu = ak.max(getattr(mu_pairs, varname), axis=1)
+		var_e_mu = ak.max(getattr(e_mu_pairs, varname), axis=1)
+		var = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 2), var_ee, default )
+		var = ak.where( ((nelectrons + nmuons) == 2) & (nmuons == 2), var_mumu, var )
+		var = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 1) & (nmuons == 1), var_e_mu, var )
 
-	m_ee = ak.max(e_pairs.mass, axis=1)
-	m_mumu = ak.max(mu_pairs.mass, axis=1)
-	m_e_mu = ak.max(e_mu_pairs.mass, axis=1)
+		return ak.from_iter(var)
 
-	mll = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 2), m_ee, default )
-	mll = ak.where( ((nelectrons + nmuons) == 2) & (nmuons == 2), m_mumu, mll )
-	mll = ak.where( ((nelectrons + nmuons) == 2) & (nelectrons == 1) & (nmuons == 1), m_e_mu, mll )
+	varnames = ['pt', 'eta', 'phi', 'mass']
+	variables = []
+	for var in varnames:
+		variables.append(get_var(var))
 
-	#print("lepton_pairs.mass:", ak.from_iter(mll))
+	return variables
 
-	return ak.from_iter(mll)
+def get_transverse_mass(dileptons, METs):
+
+	default = ak.from_iter(len(dileptons)*[-999.9])
+	phill = ak.max(dileptons.phi, axis=1)
+	phimet = ak.max(METs.phi, axis=1)
+	dphi = (phill - phimet + np.pi) % (2*np.pi) - np.pi
+	ptll = ak.max(dileptons.pt, axis=1)
+	ptmet = ak.max(METs.pt, axis=1)
+
+	mt = np.sqrt(2*ptll*ptmet*(1 - np.cos(dphi)))
+
+	return ak.from_iter(ak.where(ak.is_none(mt), default, mt))
 
 def get_charged_var(varname, electrons, muons, charge, mask, default=-999.9):
 

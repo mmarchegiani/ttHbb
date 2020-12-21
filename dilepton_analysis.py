@@ -18,7 +18,7 @@ from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 from uproot_methods import TLorentzVectorArray
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_vars, get_transverse_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
 from definitions_dilepton_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
@@ -133,7 +133,6 @@ class ttHbb(processor.ProcessorABC):
 		electrons.p4 = JaggedCandidateArray.candidatesfromcounts(electrons.counts, pt=electrons.pt.content, eta=electrons.eta.content, phi=electrons.phi.content, mass=electrons.mass.content)
 		jets.p4 = JaggedCandidateArray.candidatesfromcounts(jets.counts, pt=jets.pt.content, eta=jets.eta.content, phi=jets.phi.content, mass=jets.mass.content)
 		fatjets.p4 = JaggedCandidateArray.candidatesfromcounts(fatjets.counts, pt=fatjets.pt.content, eta=fatjets.eta.content, phi=fatjets.phi.content, mass=fatjets.mass.content)
-		#MET.p4 = JaggedCandidateArray.candidatesfromcounts(np.ones_like(MET.pt), pt=MET.pt, eta=np.zeros_like(MET.pt), phi=MET.phi, mass=np.zeros_like(MET.pt))
 
 		"""
 		for obj in [muons, electrons, jets, fatjets, PuppiMET, MET]:
@@ -189,9 +188,6 @@ class ttHbb(processor.ProcessorABC):
 		#nhiggs         = fatjets[higgs_candidates].counts[mask_events]
 
 		# trigger logic
-		#trigger_el = (nleps==2) & (nelectrons==2)
-		#trigger_el_mu = (nleps==2) & (nelectrons==1) & (nmuons==1)
-		#trigger_mu = (nleps==2) & (nmuons==2)
 		trigger_el = (nleps==2) & (nelectrons==2)
 		trigger_el_mu = (nleps==2) & (nelectrons==1) & (nmuons==1)
 		trigger_mu = (nleps==2) & (nmuons==2)
@@ -235,7 +231,12 @@ class ttHbb(processor.ProcessorABC):
 		charge_sum = get_charge_sum(events.GoodElectron, events.GoodMuon)
 		goodmuons = JaggedCandidateArray.candidatesfromcounts(events.GoodMuon.counts, pt=events.GoodMuon.pt.flatten(), eta=events.GoodMuon.eta.flatten(), phi=events.GoodMuon.phi.flatten(), mass=events.GoodMuon.mass.flatten())
 		goodelectrons = JaggedCandidateArray.candidatesfromcounts(events.GoodElectron.counts, pt=events.GoodElectron.pt.flatten(), eta=events.GoodElectron.eta.flatten(), phi=events.GoodElectron.phi.flatten(), mass=events.GoodElectron.mass.flatten())
-		mll = get_dilepton_mass(goodelectrons, goodmuons)
+		ptll, etall, phill, mll = get_dilepton_vars(goodelectrons, goodmuons)
+		mask_events_with2Leptons = (ptll >= 0)
+		dileptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_with2Leptons, dtype=int), pt=ptll[mask_events_with2Leptons], eta=etall[mask_events_with2Leptons], phi=phill[mask_events_with2Leptons], mass=mll[mask_events_with2Leptons])
+		METs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_with2Leptons, dtype=int), pt=MET.pt[mask_events_with2Leptons], eta=np.zeros_like(MET.pt[mask_events_with2Leptons]), phi=MET.phi[mask_events_with2Leptons], mass=np.zeros_like(MET.pt[mask_events_with2Leptons]))
+		mt_ww = get_transverse_mass(dileptons, METs)
+		#lepWW = dileptons.p4 + METs.p4
 		SFOS = ( ((nmuons == 2) & (nelectrons == 0)) | ((nmuons == 0) & (nelectrons == 2)) ) & (charge_sum == 0)
 		not_SFOS = ( (nmuons == 1) & (nelectrons == 1) ) & (charge_sum == 0)
 
@@ -449,6 +450,10 @@ class ttHbb(processor.ProcessorABC):
 		'lepton_minus_eta'          : lepton_minus_eta[mask_events['joint']],
 		'leading_lepton_pt'         : leading_lepton_pt[mask_events['joint']],
 		'leading_lepton_eta'        : leading_lepton_eta[mask_events['joint']],
+		'ptll'                      : ptll,
+		'ptll_cuts'                 : ptll[mask_events['joint']],
+		'mt_ww'                     : mt_ww,
+		'mt_ww_cuts'                : mt_ww[mask_events['joint']],
 		#'hadWPt'            : get_leading_value(hadW.pt),
 		#'hadWEta'           : get_leading_value(hadW.eta),
 		#'hadWMass'          : get_leading_value(hadW.mass),
