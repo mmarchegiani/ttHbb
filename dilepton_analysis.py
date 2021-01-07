@@ -18,7 +18,7 @@ from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 from uproot_methods import TLorentzVectorArray
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_vars, get_transverse_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, METzCalculator, hadronic_W, calc_dr
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_vars, get_transverse_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, calc_dr, pnuCalculator
 from definitions_dilepton_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
@@ -227,14 +227,15 @@ class ttHbb(processor.ProcessorABC):
 		events["GoodMuon"]     = muons[good_muons | veto_muons]
 		events["GoodElectron"] = electrons[good_electrons | veto_electrons]
 		events["GoodJet"]      = jets[nonbjets]
+		events["GoodBJet"]     = jets[bjets]
 		events["GoodFatJet"]   = fatjets[good_fatjets]
 		charge_sum = get_charge_sum(events.GoodElectron, events.GoodMuon)
 		goodmuons = JaggedCandidateArray.candidatesfromcounts(events.GoodMuon.counts, pt=events.GoodMuon.pt.flatten(), eta=events.GoodMuon.eta.flatten(), phi=events.GoodMuon.phi.flatten(), mass=events.GoodMuon.mass.flatten())
 		goodelectrons = JaggedCandidateArray.candidatesfromcounts(events.GoodElectron.counts, pt=events.GoodElectron.pt.flatten(), eta=events.GoodElectron.eta.flatten(), phi=events.GoodElectron.phi.flatten(), mass=events.GoodElectron.mass.flatten())
 		ptll, etall, phill, mll = get_dilepton_vars(goodelectrons, goodmuons)
-		mask_events_with2Leptons = (ptll >= 0)
-		dileptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_with2Leptons, dtype=int), pt=ptll[mask_events_with2Leptons], eta=etall[mask_events_with2Leptons], phi=phill[mask_events_with2Leptons], mass=mll[mask_events_with2Leptons])
-		METs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_with2Leptons, dtype=int), pt=MET.pt[mask_events_with2Leptons], eta=np.zeros_like(MET.pt[mask_events_with2Leptons]), phi=MET.phi[mask_events_with2Leptons], mass=np.zeros_like(MET.pt[mask_events_with2Leptons]))
+		mask_events_2l = (ptll >= 0)
+		dileptons = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l, dtype=int), pt=ptll[mask_events_2l], eta=etall[mask_events_2l], phi=phill[mask_events_2l], mass=mll[mask_events_2l])
+		METs = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l, dtype=int), pt=MET.pt[mask_events_2l], eta=np.zeros_like(MET.pt[mask_events_2l]), phi=MET.phi[mask_events_2l], mass=np.zeros_like(MET.pt[mask_events_2l]))
 		mt_ww = get_transverse_mass(dileptons, METs)
 		#lepWW = dileptons.p4 + METs.p4
 		SFOS = ( ((nmuons == 2) & (nelectrons == 0)) | ((nmuons == 0) & (nelectrons == 2)) ) & (charge_sum == 0)
@@ -274,6 +275,12 @@ class ttHbb(processor.ProcessorABC):
 		leading_lepton_eta     = awkward1.where(antilepton_is_leading, lepton_plus_eta, lepton_minus_eta)
 		leading_lepton_phi     = awkward1.where(antilepton_is_leading, lepton_plus_phi, lepton_minus_phi)
 		leading_lepton_mass    = awkward1.where(antilepton_is_leading, lepton_plus_mass, lepton_minus_mass)
+		mask_events_2l2b	   = mask_events_boost & (btags >= 2)
+		leptons_plus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_plus_pt[mask_events_2l2b], eta=lepton_plus_eta[mask_events_2l2b], phi=lepton_plus_phi[mask_events_2l2b], mass=lepton_plus_mass[mask_events_2l2b])
+		leptons_minus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_minus_pt[mask_events_2l2b], eta=lepton_minus_eta[mask_events_2l2b], phi=lepton_minus_phi[mask_events_2l2b], mass=lepton_minus_mass[mask_events_2l2b])
+		goodbjets			   = JaggedCandidateArray.candidatesfromcounts(events.GoodBJet.counts[mask_events_2l2b], pt=events.GoodBJet.pt[mask_events_2l2b].flatten(), eta=events.GoodBJet.eta[mask_events_2l2b].flatten(), phi=events.GoodBJet.phi[mask_events_2l2b].flatten(), mass=events.GoodBJet.mass[mask_events_2l2b].flatten())
+		METs_2b			   	   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=MET.pt[mask_events_2l2b], eta=np.zeros_like(MET.pt[mask_events_2l2b]), phi=MET.phi[mask_events_2l2b], mass=np.zeros_like(MET.pt[mask_events_2l2b]))
+		pnu, pnubar			   = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
 
 		"""
 		#good_events           = events[mask_events]
@@ -454,6 +461,12 @@ class ttHbb(processor.ProcessorABC):
 		'ptll_cuts'                 : ptll[mask_events['joint']],
 		'mt_ww'                     : mt_ww,
 		'mt_ww_cuts'                : mt_ww[mask_events['joint']],
+		'pnu_x'						: pnu['x'][pnu['x'] > -999],
+		'pnu_y'						: pnu['y'][pnu['y'] > -999],
+		'pnu_z'						: pnu['z'][pnu['z'] > -999],
+		'pnubar_x'					: pnubar['x'][pnubar['x'] > -999],
+		'pnubar_y'					: pnubar['y'][pnubar['y'] > -999],
+		'pnubar_z'					: pnubar['z'][pnubar['z'] > -999],
 		#'hadWPt'            : get_leading_value(hadW.pt),
 		#'hadWEta'           : get_leading_value(hadW.eta),
 		#'hadWMass'          : get_leading_value(hadW.mass),

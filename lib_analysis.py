@@ -295,7 +295,7 @@ def hadronic_W(jets):
 
 	return hadW, n_hadW
 
-def pnuCalculator(l, l_bar, bjets, MET):
+def pnuCalculator(leptons, leptons_bar, bjets, METs):
 
 	# As we have no information regarding the charge of the jet, in principle we should iterate
 	# over all the possible (b, b_bar) pairs of bjet pairs. In order to assign a bjet to b or b_bar
@@ -307,104 +307,149 @@ def pnuCalculator(l, l_bar, bjets, MET):
 	M_t = 173.1
 	M_b = 4.2
 
-	for reverse in [True, False]:
-		for i in range(pairs.counts[ievt]):
-			if not reverse:
-				b     = pairs.i0.p4[:,i]
-				b_bar = pairs.i1.p4[:,i]
-			else:
-				b     = pairs.i1.p4[:,i]
-				b_bar = pairs.i0.p4[:,i]
+	pnu    = {'x' : [], 'y' : [], 'z' : []}
+	pnubar = {'x' : [], 'y' : [], 'z' : []}
 
-			a1 = ( (b.energy + l_bar.energy)*(M_W**2 - l_bar.mass**2)
-				   - l_bar.energy*(M_t**2 - M_b**2 - l_bar.mass**2)
-				   + 2*b.energy*l_bar.energy**2 - 2*l_bar.energy*(b.x*l_bar.x + b.y*l_bar.y + b.z*l_bar.z) )
-			a2 = 2*(b.energy*l_bar.x - l_bar.energy*b.x)
-			a3 = 2*(b.energy*l_bar.y - l_bar.energy*b.y)
-			a4 = 2*(b.energy*l_bar.z - l_bar.energy*b.z)
+	for ievt in range(len(pairs)):
+		pnu_x_list = []
+		pnu_y_list = []
+		pnu_z_list = []
+		pnubar_x_list = []
+		pnubar_y_list = []
+		pnubar_z_list = []
+		l     = None
+		l_bar = None
+		MET   = None
 
-			b1 = ( (b_bar.energy + l.energy)*(M_W**2 - l.mass**2)
-				   - l.energy*(M_t**2 - M_b**2 - l.mass**2)
-				   + 2*b_bar.energy*l.energy**2 - 2*l.energy*(b_bar.x*l.x + b_bar.y*l.y + b_bar.z*l.z) )
-			b2 = 2*(b_bar.energy*l.x - l.energy*b_bar.x)
-			b3 = 2*(b_bar.energy*l.y - l.energy*b_bar.y)
-			b4 = 2*(b_bar.energy*l.z - l.energy*b_bar.z)
+		for reverse in [True, False]:
+			for i in range(pairs.counts[ievt]):
+				print(ievt)
+				if leptons.counts[ievt] == 0:
+					pnu_x_list = [-999.9]
+					pnu_y_list = [-999.9]
+					pnu_z_list = [-999.9]
+					pnubar_x_list = [-999.9]
+					pnubar_y_list = [-999.9]
+					pnubar_z_list = [-999.9]
+					print("continue")
+					continue
+				else:
+					l     = leptons.p4[ievt,0]
+					l_bar = leptons_bar.p4[ievt,0]
+					MET   = METs.p4[ievt,0]
+				if not reverse:
+					b     = pairs.i0.p4[ievt,i]
+					b_bar = pairs.i1.p4[ievt,i]
+				else:
+					b     = pairs.i1.p4[ievt,i]
+					b_bar = pairs.i0.p4[ievt,i]
 
-			def coeffs(lept, coefficients):
+				a1 = ( (b.energy + l_bar.energy)*(M_W**2 - l_bar.mass**2)
+					   - l_bar.energy*(M_t**2 - M_b**2 - l_bar.mass**2)
+					   + 2*b.energy*l_bar.energy**2 - 2*l_bar.energy*(b.x*l_bar.x + b.y*l_bar.y + b.z*l_bar.z) )
+				a2 = 2*(b.energy*l_bar.x - l_bar.energy*b.x)
+				a3 = 2*(b.energy*l_bar.y - l_bar.energy*b.y)
+				a4 = 2*(b.energy*l_bar.z - l_bar.energy*b.z)
 
-				k1, k2, k3, k4 = coefficients
-				F = (M_W**2 - lept.mass**2)
-				pt2 = (lept.energy**2 - lept.z**2)
-				K1 = k1/k4
-				K2 = k2/k4
-				K3 = k3/k4
-				K12 = k1*k2/k4**2
-				K13 = k1*k3/k4**2
-				K23 = k2*k3/k4**2
+				b1 = ( (b_bar.energy + l.energy)*(M_W**2 - l.mass**2)
+					   - l.energy*(M_t**2 - M_b**2 - l.mass**2)
+					   + 2*b_bar.energy*l.energy**2 - 2*l.energy*(b_bar.x*l.x + b_bar.y*l.y + b_bar.z*l.z) )
+				b2 = 2*(b_bar.energy*l.x - l.energy*b_bar.x)
+				b3 = 2*(b_bar.energy*l.y - l.energy*b_bar.y)
+				b4 = 2*(b_bar.energy*l.z - l.energy*b_bar.z)
 
-				k22 = ( F**2 - 4*pt2*K1**2
-				        - 4*F*lept.z*K1 )
-				k21 = ( 4*F*(lept.x - lept.z*K2)
-				        - 8*pt2*K12 - 8*lept.x*lept.z*K1 )
-				k20 = ( - 4*(lept.energy**2 - lept.x**2) - 4*pt2*K2**2
-						- 8*lept.x*lept.z*K2 )
-				k11 = ( 4*F*(lept.y - lept.z*K3)
-						- 8*pt2*K13 - 8*lept.y*lept.z*K1 )
-				k10 = ( - 8*pt2*K23 + 8*lept.x*lept.y
-						- 8*lept.x*lept.z*K3 - 8*lept.y*lept.z*K2 )
-				k00 = ( - 4*(lept.energy**2 - lept.y**2) - 4*pt2*K3**2
-						- 8*lept.y*lept.z*K3 )
+				def coeffs(lept, coefficients):
 
-				return (k22, k21, k20, k11, k10, k00)
+					k1, k2, k3, k4 = coefficients
+					F = (M_W**2 - lept.mass**2)
+					pt2 = (lept.energy**2 - lept.z**2)
+					K1 = k1/k4
+					K2 = k2/k4
+					K3 = k3/k4
+					K12 = k1*k2/k4**2
+					K13 = k1*k3/k4**2
+					K23 = k2*k3/k4**2
 
-			c22, c21, c20, c11, c10, c00 = coeffs(l_bar, (a1,a2,a3,a4))
-			d22_, d21_, d20_, d11_, d10_, d00_ = coeffs(l, (b1,b2,b3,b4))
+					k22 = ( F**2 - 4*pt2*K1**2
+					        - 4*F*lept.z*K1 )
+					k21 = ( 4*F*(lept.x - lept.z*K2)
+					        - 8*pt2*K12 - 8*lept.x*lept.z*K1 )
+					k20 = ( - 4*(lept.energy**2 - lept.x**2) - 4*pt2*K2**2
+							- 8*lept.x*lept.z*K2 )
+					k11 = ( 4*F*(lept.y - lept.z*K3)
+							- 8*pt2*K13 - 8*lept.y*lept.z*K1 )
+					k10 = ( - 8*pt2*K23 + 8*lept.x*lept.y
+							- 8*lept.x*lept.z*K3 - 8*lept.y*lept.z*K2 )
+					k00 = ( - 4*(lept.energy**2 - lept.y**2) - 4*pt2*K3**2
+							- 8*lept.y*lept.z*K3 )
 
-			d22 = d22_ + (MET.x**2)*d20_ + (MET.y**2)*d00_ + MET.x*MET.y*d10_
-				  + MET.x*d21_ + MET.y*d11_
-			d21 = - d21_ - 2*MET.x*d20_ - MET.y*d10_
-			d20 = d20_
-			d11 = - d11_ - 2*MET.y*d00_ - MET.x*d10_
-			d10 = d10_
-			d00 = d00_
+					return (k22, k21, k20, k11, k10, k00)
 
-			h4 = (c00**2)*(d22**2) + c11*d22*(c11*d00 - c00*d11)
-				 + c00*c22*(d11**2 - 2*d00*d22) + c22*d00*(c22*d00 - c11*d11)
-			h3 = c00*d21*(2*c00*d22 - c11*d11) + c00*d11*(2*c22*d10 + c21*d11)
-				 + c22*d00*(2*c21*d00 - c11*d10) - c00*d22*(c11*d10 + c10*d11)
-				 - 2*c00*d00*(c22*d21 + c21*d22) - d00*d11*(c11*c21 + c10*c22)
-				 + c11*d00*(c11*d21 + 2*c10*d22)
-			h2 = (c00**2)*(2*d22*d20 + d21**2) - c00*d21*(c11*d10 + c10*d11)
-				 + c11*d20*(c11*d00 - c00*d11) + c00*d10*(c22*d10 - c10*d22)
-				 + c00*d11*(2*c21*d10 + c20*d11) + (2*c22*c20 + c21**2)*d00**2
-				 - 2*c00*d00*(c22*d20 + c21*d21 + c20*d22)
-				 + c10*d00*(2*c11*d21 + c10*d22) - d00*d10*(c11*c21 + c10*c22)
-				 - d00*d11*(c11*c20 + c10*c21)
-			h1 = c00*d21*(2*c00*d20 - c10*d10) - c00*d20*(c11*d10 + c10*d11)
-				 + c00*d10*(c21*d10 + 2*c20*d11) - 2*c00*d00*(c21*d20 + c20*d21)
-				 + c10*d00*(2*c11*d20 + c10*d21) - c20*d00*(2*c21*d00 - c10*d11)
-				 - d00*d10*(c11*c20 + c10*c21)
-			h0 = (c00**2)*(d20**2) + c10*d20*(c10*d00 - c00*d10)
-				 + c20*d10*(c00*d10 - c10*d00) + c20*d00*(c20*d00 - 2*c00*d20)
+				c22, c21, c20, c11, c10, c00 = coeffs(l_bar, (a1,a2,a3,a4))
+				d22_, d21_, d20_, d11_, d10_, d00_ = coeffs(l, (b1,b2,b3,b4))
 
-			pnu_xs = np.roots((h0,h1,h2,h3,h4))
-			# Naive choice: the first solution or its real part is chosen
-			pnu_x  = np.where(np.isreal(pnu_xs).all(), pnu_xs[:,0], np.real(pnu_xs[:,0]))
+				d22 = (d22_ + (MET.x**2)*d20_ + (MET.y**2)*d00_ + MET.x*MET.y*d10_
+					   + MET.x*d21_ + MET.y*d11_)
+				d21 = - d21_ - 2*MET.x*d20_ - MET.y*d10_
+				d20 = d20_
+				d11 = - d11_ - 2*MET.y*d00_ - MET.x*d10_
+				d10 = d10_
+				d00 = d00_
 
-			c0 = c00
-			c1 = c11
-			c2 = c22
-			d0 = d00
-			d1 = d11
-			d2 = d22
-			pnu_y = (c0*d2 - c2*d0)/(c1*d0 - c0*d1)
-			pnu_z = - (a1 + a2*pnux + a3*pnuy)/a4
+				h4 = ((c00**2)*(d22**2) + c11*d22*(c11*d00 - c00*d11)
+					  + c00*c22*(d11**2 - 2*d00*d22) + c22*d00*(c22*d00 - c11*d11))
+				h3 = (c00*d21*(2*c00*d22 - c11*d11) + c00*d11*(2*c22*d10 + c21*d11)
+					  + c22*d00*(2*c21*d00 - c11*d10) - c00*d22*(c11*d10 + c10*d11)
+					  - 2*c00*d00*(c22*d21 + c21*d22) - d00*d11*(c11*c21 + c10*c22)
+					  + c11*d00*(c11*d21 + 2*c10*d22))
+				h2 = ((c00**2)*(2*d22*d20 + d21**2) - c00*d21*(c11*d10 + c10*d11)
+					  + c11*d20*(c11*d00 - c00*d11) + c00*d10*(c22*d10 - c10*d22)
+					  + c00*d11*(2*c21*d10 + c20*d11) + (2*c22*c20 + c21**2)*d00**2
+					  - 2*c00*d00*(c22*d20 + c21*d21 + c20*d22)
+					  + c10*d00*(2*c11*d21 + c10*d22) - d00*d10*(c11*c21 + c10*c22)
+					  - d00*d11*(c11*c20 + c10*c21))
+				h1 = (c00*d21*(2*c00*d20 - c10*d10) - c00*d20*(c11*d10 + c10*d11)
+					  + c00*d10*(c21*d10 + 2*c20*d11) - 2*c00*d00*(c21*d20 + c20*d21)
+					  + c10*d00*(2*c11*d20 + c10*d21) - c20*d00*(2*c21*d00 - c10*d11)
+					  - d00*d10*(c11*c20 + c10*c21))
+				h0 = ((c00**2)*(d20**2) + c10*d20*(c10*d00 - c00*d10)
+					  + c20*d10*(c00*d10 - c10*d00) + c20*d00*(c20*d00 - 2*c00*d20))
 
-			pnubar_x = MET.x - pnu_x
-			pnubar_y = MET.y - pnu_y
-			pnubar_z = - (b1 + b2*pnux + b3*pnuy)/b4
+				pnu_xs = np.roots((h0,h1,h2,h3,h4))
+				# Naive choice: the first solution or its real part is chosen
+				pnu_x  = np.where(np.isreal(pnu_xs).all(), pnu_xs, np.real(pnu_xs))[0]
 
-	# Here we have to cleverly organise the output as we have 6x(number of (b,b_bar) pairs)
+				c0 = c00
+				c1 = c11
+				c2 = c22
+				d0 = d00
+				d1 = d11
+				d2 = d22
+				pnu_y = (c0*d2 - c2*d0)/(c1*d0 - c0*d1)
+				pnu_z = - (a1 + a2*pnu_x + a3*pnu_y)/a4
+
+				pnubar_x = MET.x - pnu_x
+				pnubar_y = MET.y - pnu_y
+				pnubar_z = - (b1 + b2*pnubar_x + b3*pnubar_y)/b4
+
+				pnu_x_list.append(pnu_x)
+				pnu_y_list.append(pnu_y)
+				pnu_z_list.append(pnu_z)
+				pnubar_x_list.append(pnubar_x)
+				pnubar_y_list.append(pnubar_y)
+				pnubar_z_list.append(pnubar_z)
+		# Naive choice: the first (b, b_bar) configuration is chosen
+		pnu['x'].append(pnu_x_list[0])
+		pnu['y'].append(pnu_y_list[0])
+		pnu['z'].append(pnu_z_list[0])
+		pnubar['x'].append(pnubar_x_list[0])
+		pnubar['y'].append(pnubar_y_list[0])
+		pnubar['y'].append(pnubar_y_list[0])
+
+	# Here we have to cleverly organise the output as the number of sets of solutions is equal to N_b(N_b - 1)
 	# Then I have to choose a criterion in order to choose the correct (b, b_bar) pair
+	for item in pnu.keys():
+		pnu[item] = np.array(pnu[item])
+		pnubar[item] = np.array(pnubar[item])
 
-	return pnu_x, pnu_y, pnu_z, pnubar_x, pnubar_y, pnubar_z
+	return pnu, pnubar
