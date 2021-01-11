@@ -321,22 +321,19 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 		l_bar = None
 		MET   = None
 
-		for reverse in [True, False]:
-			for i in range(pairs.counts[ievt]):
-				print(ievt)
-				if leptons.counts[ievt] == 0:
+		for reverse in [False, True]:
+			if leptons.counts[ievt] == 0:
 					pnu_x_list = [-999.9]
 					pnu_y_list = [-999.9]
 					pnu_z_list = [-999.9]
 					pnubar_x_list = [-999.9]
 					pnubar_y_list = [-999.9]
 					pnubar_z_list = [-999.9]
-					print("continue")
 					continue
-				else:
-					l     = leptons.p4[ievt,0]
-					l_bar = leptons_bar.p4[ievt,0]
-					MET   = METs.p4[ievt,0]
+			for i in range(pairs.counts[ievt]):
+				l     = leptons.p4[ievt,0]
+				l_bar = leptons_bar.p4[ievt,0]
+				MET   = METs.p4[ievt,0]
 				if not reverse:
 					b     = pairs.i0.p4[ievt,i]
 					b_bar = pairs.i1.p4[ievt,i]
@@ -417,7 +414,8 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 
 				pnu_xs = np.roots((h0,h1,h2,h3,h4))
 				# Naive choice: the first solution or its real part is chosen
-				pnu_x  = np.where(np.isreal(pnu_xs).all(), pnu_xs, np.real(pnu_xs))[0]
+				#pnu_x  = np.where(np.isreal(pnu_xs).all(), pnu_xs, np.real(pnu_xs))[0]
+				pnu_x  = np.real(pnu_xs).real[0]
 
 				c0 = c00
 				c1 = c11
@@ -444,7 +442,7 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 		pnu['z'].append(pnu_z_list[0])
 		pnubar['x'].append(pnubar_x_list[0])
 		pnubar['y'].append(pnubar_y_list[0])
-		pnubar['y'].append(pnubar_y_list[0])
+		pnubar['z'].append(pnubar_z_list[0])
 
 	# Here we have to cleverly organise the output as the number of sets of solutions is equal to N_b(N_b - 1)
 	# Then I have to choose a criterion in order to choose the correct (b, b_bar) pair

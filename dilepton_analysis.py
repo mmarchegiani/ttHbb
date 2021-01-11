@@ -278,7 +278,8 @@ class ttHbb(processor.ProcessorABC):
 		mask_events_2l2b	   = mask_events_boost & (btags >= 2)
 		leptons_plus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_plus_pt[mask_events_2l2b], eta=lepton_plus_eta[mask_events_2l2b], phi=lepton_plus_phi[mask_events_2l2b], mass=lepton_plus_mass[mask_events_2l2b])
 		leptons_minus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_minus_pt[mask_events_2l2b], eta=lepton_minus_eta[mask_events_2l2b], phi=lepton_minus_phi[mask_events_2l2b], mass=lepton_minus_mass[mask_events_2l2b])
-		goodbjets			   = JaggedCandidateArray.candidatesfromcounts(events.GoodBJet.counts[mask_events_2l2b], pt=events.GoodBJet.pt[mask_events_2l2b].flatten(), eta=events.GoodBJet.eta[mask_events_2l2b].flatten(), phi=events.GoodBJet.phi[mask_events_2l2b].flatten(), mass=events.GoodBJet.mass[mask_events_2l2b].flatten())
+		goodbjets			   = JaggedCandidateArray.candidatesfromcounts(events.GoodBJet.counts, pt=events.GoodBJet.pt.flatten(), eta=events.GoodBJet.eta.flatten(), phi=events.GoodBJet.phi.flatten(), mass=events.GoodBJet.mass.flatten())
+		#goodbjets			   = JaggedCandidateArray.candidatesfromcounts(np.where(mask_events_2l2b, events.GoodBJet.counts, 0), pt=events.GoodBJet.pt[mask_events_2l2b].flatten(), eta=events.GoodBJet.eta[mask_events_2l2b].flatten(), phi=events.GoodBJet.phi[mask_events_2l2b].flatten(), mass=events.GoodBJet.mass[mask_events_2l2b].flatten())
 		METs_2b			   	   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=MET.pt[mask_events_2l2b], eta=np.zeros_like(MET.pt[mask_events_2l2b]), phi=MET.phi[mask_events_2l2b], mass=np.zeros_like(MET.pt[mask_events_2l2b]))
 		pnu, pnubar			   = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
 
