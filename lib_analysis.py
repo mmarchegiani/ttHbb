@@ -4,6 +4,7 @@ import awkward1 as ak
 import numpy as np
 import math
 import uproot
+from uproot_methods import TLorentzVector
 
 #from awkward.array.jagged import JaggedArray
 from coffea import hist
@@ -317,19 +318,20 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 		pnubar_x_list = []
 		pnubar_y_list = []
 		pnubar_z_list = []
+		m_w_plus_reco_list = []
 		l     = None
 		l_bar = None
 		MET   = None
 
 		for reverse in [False, True]:
 			if leptons.counts[ievt] == 0:
-					pnu_x_list = [-999.9]
-					pnu_y_list = [-999.9]
-					pnu_z_list = [-999.9]
-					pnubar_x_list = [-999.9]
-					pnubar_y_list = [-999.9]
-					pnubar_z_list = [-999.9]
-					continue
+				#pnu_x_list = [-9999.9]
+				#pnu_y_list = [-9999.9]
+				#pnu_z_list = [-9999.9]
+				#pnubar_x_list = [-9999.9]
+				#pnubar_y_list = [-9999.9]
+				#pnubar_z_list = [-9999.9]
+				continue
 			for i in range(pairs.counts[ievt]):
 				l     = leptons.p4[ievt,0]
 				l_bar = leptons_bar.p4[ievt,0]
@@ -413,18 +415,45 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 					  + c20*d10*(c00*d10 - c10*d00) + c20*d00*(c20*d00 - 2*c00*d20))
 
 				pnu_xs = np.roots((h0,h1,h2,h3,h4))
+				pnu_xs = pnu_xs[np.isreal(pnu_xs)].real
 				# Naive choice: the first solution or its real part is chosen
-				#pnu_x  = np.where(np.isreal(pnu_xs).all(), pnu_xs, np.real(pnu_xs))[0]
-				pnu_x  = np.real(pnu_xs).real[0]
+				#pnu_x  = np.real(pnu_xs).real[0]
+				pnu_x = None
+				pnu_y = None
+				pnu_z = None
+				m_w_plus_reco = None
+				if len(pnu_xs) == 0:
+					if ((reverse == True) & (len(pnu_x_list) == 0)):
+						pnu_x_list = [-9999.9]
+						pnu_y_list = [-9999.9]
+						pnu_z_list = [-9999.9]
+						pnubar_x_list = [-9999.9]
+						pnubar_y_list = [-9999.9]
+						pnubar_z_list = [-9999.9]
+						m_w_plus_reco_list = [-9999.9]
+					continue
+				else:
+					c0 = c00
+					c1 = c11
+					c2 = c22
+					d0 = d00
+					d1 = d11
+					d2 = d22
+					pnu_y = (c0*d2 - c2*d0)/(c1*d0 - c0*d1)
+					masses = []
+					pnu_zs = []
+					for pnu_x_sol in pnu_xs:
+						pnu_z_sol	  = - (a1 + a2*pnu_x_sol + a3*pnu_y)/a4
+						pnu_zs.append(pnu_z_sol)
+						neutrino	  = TLorentzVector(pnu_x_sol, pnu_y, pnu_z_sol, np.sqrt(pnu_x_sol**2 + pnu_y**2 + pnu_z_sol**2))
+						lepton_plus	  = TLorentzVector(l_bar.x, l_bar.y, l_bar.z, np.sqrt(l_bar.x**2 + l_bar.y**2 + l_bar.z**2 + l_bar.mass**2))
+						m_w = (neutrino + lepton_plus).mass
+						masses.append(m_w)
 
-				c0 = c00
-				c1 = c11
-				c2 = c22
-				d0 = d00
-				d1 = d11
-				d2 = d22
-				pnu_y = (c0*d2 - c2*d0)/(c1*d0 - c0*d1)
-				pnu_z = - (a1 + a2*pnu_x + a3*pnu_y)/a4
+					i_min = np.argmin(np.abs(np.array(masses) - M_W))
+					pnu_x  = pnu_xs[i_min]
+					pnu_z  = pnu_zs[i_min]
+					m_w_plus_reco = masses[i_min]
 
 				pnubar_x = MET.x - pnu_x
 				pnubar_y = MET.y - pnu_y
@@ -436,13 +465,16 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				pnubar_x_list.append(pnubar_x)
 				pnubar_y_list.append(pnubar_y)
 				pnubar_z_list.append(pnubar_z)
+				m_w_plus_reco_list.append(m_w_plus_reco)
 		# Naive choice: the first (b, b_bar) configuration is chosen
-		pnu['x'].append(pnu_x_list[0])
-		pnu['y'].append(pnu_y_list[0])
-		pnu['z'].append(pnu_z_list[0])
-		pnubar['x'].append(pnubar_x_list[0])
-		pnubar['y'].append(pnubar_y_list[0])
-		pnubar['z'].append(pnubar_z_list[0])
+		if len(pnu_x_list) != 0:
+			j_min = np.argmin(np.abs(np.array(m_w_plus_reco_list) - M_W))
+			pnu['x'].append(pnu_x_list[j_min])
+			pnu['y'].append(pnu_y_list[j_min])
+			pnu['z'].append(pnu_z_list[j_min])
+			pnubar['x'].append(pnubar_x_list[j_min])
+			pnubar['y'].append(pnubar_y_list[j_min])
+			pnubar['z'].append(pnubar_z_list[j_min])
 
 	# Here we have to cleverly organise the output as the number of sets of solutions is equal to N_b(N_b - 1)
 	# Then I have to choose a criterion in order to choose the correct (b, b_bar) pair
@@ -451,3 +483,9 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 		pnubar[item] = np.array(pnubar[item])
 
 	return pnu, pnubar
+
+def w_mass(leptons, neutrinos):
+	
+	lepW = leptons.p4 + neutrinos.p4
+
+	return lepW.mass.flatten()

@@ -636,6 +636,8 @@ histogram_settings = {
         'pnubar_x'                  : {'binning' : (-1000,1000,201), 'xlim' : (-300,300), 'xlabel' : r'$p_{\bar{\nu}_x}$ [GeV]'},
         'pnubar_y'                  : {'binning' : (-1000,1000,201), 'xlim' : (-300,300), 'xlabel' : r'$p_{\bar{\nu}_y}$ [GeV]'},
         'pnubar_z'                  : {'binning' : (-1000,1000,201), 'xlim' : (-300,300), 'xlabel' : r'$p_{\bar{\nu}_z}$ [GeV]'},
+        'm_w_plus'                  : {'binning' : (0,1500,301), 'xlim' : (0,500),  'xlabel' : "$m_{W^+}$ [GeV]"},
+        'm_w_minus'                 : {'binning' : (0,1500,301), 'xlim' : (0,500),  'xlabel' : "$m_{W^-}$ [GeV]"},
         #'deltaRlepWHiggs'          : {'binning' : (0,5,31),     'xlim' : (0,5)},
         #'deltaRhadWHiggs'          : {'binning' : (0,5,31),     'xlim' : (0,5)},
         #'deltaRHiggsLepton'        : {'binning' : (0,5,31),     'xlim' : (0,5)},

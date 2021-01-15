@@ -18,7 +18,7 @@ from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 from uproot_methods import TLorentzVectorArray
 
-from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_vars, get_transverse_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, calc_dr, pnuCalculator
+from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_vars, get_transverse_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, calc_dr, pnuCalculator, w_mass
 from definitions_dilepton_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
@@ -282,6 +282,13 @@ class ttHbb(processor.ProcessorABC):
 		#goodbjets			   = JaggedCandidateArray.candidatesfromcounts(np.where(mask_events_2l2b, events.GoodBJet.counts, 0), pt=events.GoodBJet.pt[mask_events_2l2b].flatten(), eta=events.GoodBJet.eta[mask_events_2l2b].flatten(), phi=events.GoodBJet.phi[mask_events_2l2b].flatten(), mass=events.GoodBJet.mass[mask_events_2l2b].flatten())
 		METs_2b			   	   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=MET.pt[mask_events_2l2b], eta=np.zeros_like(MET.pt[mask_events_2l2b]), phi=MET.phi[mask_events_2l2b], mass=np.zeros_like(MET.pt[mask_events_2l2b]))
 		pnu, pnubar			   = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
+		efficiency			   = np.array(pnu['x'] > -1000).sum()/len(pnu['x'])
+		print(efficiency)
+		neutrinos			   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnu['x'], py=pnu['y'], pz=pnu['z'], mass=np.zeros_like(pnu['x']))
+		antineutrinos		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnubar['x'], py=pnubar['y'], pz=pnubar['z'], mass=np.zeros_like(pnubar['x']))
+		m_w_plus			   = w_mass(leptons_plus, neutrinos)
+		m_w_minus			   = w_mass(leptons_minus, antineutrinos)
+		#print(m_w_plus)
 
 		"""
 		#good_events           = events[mask_events]
@@ -462,12 +469,14 @@ class ttHbb(processor.ProcessorABC):
 		'ptll_cuts'                 : ptll[mask_events['joint']],
 		'mt_ww'                     : mt_ww,
 		'mt_ww_cuts'                : mt_ww[mask_events['joint']],
-		'pnu_x'						: pnu['x'][pnu['x'] > -999],
-		'pnu_y'						: pnu['y'][pnu['y'] > -999],
-		'pnu_z'						: pnu['z'][pnu['z'] > -999],
-		'pnubar_x'					: pnubar['x'][pnubar['x'] > -999],
-		'pnubar_y'					: pnubar['y'][pnubar['y'] > -999],
-		'pnubar_z'					: pnubar['z'][pnubar['z'] > -999],
+		'pnu_x'						: pnu['x'],
+		'pnu_y'						: pnu['y'],
+		'pnu_z'						: pnu['z'],
+		'pnubar_x'					: pnubar['x'],
+		'pnubar_y'					: pnubar['y'],
+		'pnubar_z'					: pnubar['z'],
+		'm_w_plus'					: m_w_plus,
+		'm_w_minus'					: m_w_minus,
 		#'hadWPt'            : get_leading_value(hadW.pt),
 		#'hadWEta'           : get_leading_value(hadW.eta),
 		#'hadWMass'          : get_leading_value(hadW.mass),
