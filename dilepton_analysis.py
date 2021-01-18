@@ -282,8 +282,8 @@ class ttHbb(processor.ProcessorABC):
 		#goodbjets			   = JaggedCandidateArray.candidatesfromcounts(np.where(mask_events_2l2b, events.GoodBJet.counts, 0), pt=events.GoodBJet.pt[mask_events_2l2b].flatten(), eta=events.GoodBJet.eta[mask_events_2l2b].flatten(), phi=events.GoodBJet.phi[mask_events_2l2b].flatten(), mass=events.GoodBJet.mass[mask_events_2l2b].flatten())
 		METs_2b			   	   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=MET.pt[mask_events_2l2b], eta=np.zeros_like(MET.pt[mask_events_2l2b]), phi=MET.phi[mask_events_2l2b], mass=np.zeros_like(MET.pt[mask_events_2l2b]))
 		pnu, pnubar			   = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
-		efficiency			   = np.array(pnu['x'] > -1000).sum()/len(pnu['x'])
-		print(efficiency)
+		#efficiency			   = np.array(pnu['x'] > -1000).sum()/len(pnu['x'])
+		#print(efficiency)
 		neutrinos			   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnu['x'], py=pnu['y'], pz=pnu['z'], mass=np.zeros_like(pnu['x']))
 		antineutrinos		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnubar['x'], py=pnubar['y'], pz=pnubar['z'], mass=np.zeros_like(pnubar['x']))
 		m_w_plus			   = w_mass(leptons_plus, neutrinos)
@@ -524,7 +524,8 @@ class ttHbb(processor.ProcessorABC):
 
 		for var_name, var in vars_to_plot.items():
 			try:
-				output[var_name].fill(dataset=dataset, values=var)
+				print(var_name, len(var), len(weights['nominal']))
+				output[var_name].fill(dataset=dataset, values=var, weight=weights["nominal"])
 			except KeyError:
 				print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
 
