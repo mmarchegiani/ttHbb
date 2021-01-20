@@ -325,12 +325,13 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 
 		for reverse in [False, True]:
 			if leptons.counts[ievt] == 0:
-				#pnu_x_list = [-9999.9]
-				#pnu_y_list = [-9999.9]
-				#pnu_z_list = [-9999.9]
-				#pnubar_x_list = [-9999.9]
-				#pnubar_y_list = [-9999.9]
-				#pnubar_z_list = [-9999.9]
+				if reverse == False:
+					pnu['x'].append(-9999.9)
+					pnu['y'].append(-9999.9)
+					pnu['z'].append(-9999.9)
+					pnubar['x'].append(-9999.9)
+					pnubar['y'].append(-9999.9)
+					pnubar['z'].append(-9999.9)
 				continue
 			for i in range(pairs.counts[ievt]):
 				l     = leptons.p4[ievt,0]
@@ -484,8 +485,18 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 
 	return pnu, pnubar
 
-def w_mass(leptons, neutrinos):
+def w_mass(leptons, neutrinos, mask_events):
 	
 	lepW = leptons.p4 + neutrinos.p4
 
-	return lepW.mass.flatten()
+	#for ievt in range(mask_events):
+	#	if mask_events[i] == False:
+	m_w = lepW.mass
+	m_w_filled = []
+	for (i, mass) in enumerate(m_w):
+		if mask_events[i]:
+			m_w_filled.append(mass[0])
+		else:
+			m_w_filled.append(-999.9)
+
+	return ak.from_iter(m_w_filled)

@@ -24,40 +24,35 @@ from definitions_dilepton_analysis import parameters, histogram_settings, sample
 class ttHbb(processor.ProcessorABC):
 	def __init__(self):
 		#self.sample = sample
+		self._nsolved = 0
+		self._n2l2b = 0
 		self._variables = histogram_settings['variables']
 		self._varnames = self._variables.keys()
 		self._fill_opts = histogram_settings['fill_opts']
 		self._error_opts = histogram_settings['error_opts']
 		self._mask_events_list = [
-		  'resolved',
+		  'trigger',
+		  #'resolved',
 		  'basic',
-		  '2J',
-		  '2J2W',
-		  '2J2WdeltaR',
-		  '2J2WdeltaR_Pass',
-		  '2J2WdeltaR_Fail',
-		  'basic_orthogonal',
-		  '2J_orthogonal',
-		  '2J2W_orthogonal',
-		  '2J2WdeltaR_orthogonal',
-		  '2J2WdeltaR_Pass_orthogonal',
-		  '2J2WdeltaR_Fail_orthogonal',
-		  #'basic_overlap',
-		  #'2J_overlap',
-		  #'2J2W_overlap',
-		  #'2J2WdeltaR_overlap',
-		  #'2J2WdeltaR_Pass_overlap',
-		  #'2J2WdeltaR_Fail_overlap',
+		  '2l2b',
+		  '2l2bmw',
+		  #'joint'
+		]
+		self._weights_list = [
+		  'ones',
+		  'nominal'
 		]
 
 		self._accumulator = processor.dict_accumulator({
 			"sumw": processor.defaultdict_accumulator(float),
 		})
 
-		for var_name in self._varnames:
-			self._accumulator.add(processor.dict_accumulator({var_name : hist.Hist("entries",
-														  	  hist.Cat("dataset", "Dataset"),
-														  	  hist.Bin("values", self._variables[var_name]['xlabel'], np.linspace( *self._variables[var_name]['binning'] ) ) ) } ))
+		for wn in self._weights_list:
+			for mask_name in self._mask_events_list:
+				for var_name in self._varnames:
+						self._accumulator.add(processor.dict_accumulator({f'{var_name}_{mask_name}_weights_{wn}' : hist.Hist("a.u.",
+																  		  hist.Cat("dataset", "Dataset"),
+																		  hist.Bin("values", self._variables[var_name]['xlabel'], np.linspace( *self._variables[var_name]['binning'] ) ) ) } ))
 
 			"""
 		vars_split = ['leadAK8JetMass', 'leadAK8JetRho']
@@ -116,7 +111,7 @@ class ttHbb(processor.ProcessorABC):
 		luminosityBlock = events.luminosityBlock
 		HLT = events.HLT
 		genWeight = events.genWeight
-		puWeight = events.puWeight
+		#puWeight = events.puWeight
 		if is_mc:
 			genparts = events.GenPart
 
@@ -284,11 +279,14 @@ class ttHbb(processor.ProcessorABC):
 		pnu, pnubar			   = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
 		#efficiency			   = np.array(pnu['x'] > -1000).sum()/len(pnu['x'])
 		#print(efficiency)
-		neutrinos			   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnu['x'], py=pnu['y'], pz=pnu['z'], mass=np.zeros_like(pnu['x']))
-		antineutrinos		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnubar['x'], py=pnubar['y'], pz=pnubar['z'], mass=np.zeros_like(pnubar['x']))
-		m_w_plus			   = w_mass(leptons_plus, neutrinos)
-		m_w_minus			   = w_mass(leptons_minus, antineutrinos)
-		#print(m_w_plus)
+		neutrinos			   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnu['x'][mask_events_2l2b], py=pnu['y'][mask_events_2l2b], pz=pnu['z'][mask_events_2l2b], mass=np.zeros_like(pnu['x'][mask_events_2l2b]))
+		antineutrinos		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnubar['x'][mask_events_2l2b], py=pnubar['y'][mask_events_2l2b], pz=pnubar['z'][mask_events_2l2b], mass=np.zeros_like(pnubar['x'][mask_events_2l2b]))
+		m_w_plus			   = w_mass(leptons_plus, neutrinos, mask_events_2l2b)
+		m_w_minus			   = w_mass(leptons_minus, antineutrinos, mask_events_2l2b)
+
+		mask_events_2l2bmw = mask_events_2l2b & (m_w_plus < 200) & (m_w_minus < 200)
+		self._nsolved		   += np.array(pnu['x'] > -1000).sum()
+		self._n2l2b			   += np.array(mask_events_2l2b).sum()
 
 		"""
 		#good_events           = events[mask_events]
@@ -309,8 +307,8 @@ class ttHbb(processor.ProcessorABC):
 			weights["nominal"] = weights["nominal"] * genWeight * parameters["lumi"] * samples_info[sample]["XS"] / samples_info[sample]["ngen_weight"][args.year]
 
 			# pu corrections
-			if puWeight is not None:
-				weights['pu'] = puWeight
+			#if puWeight is not None:
+			#	weights['pu'] = puWeight
 				#if not uncertaintyName.startswith('puWeight'):
 				#	weights['pu'] = puWeight
 				#else:
@@ -318,7 +316,7 @@ class ttHbb(processor.ProcessorABC):
 			#else:
 		#        weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["PV_npvsGood"])
 				#weights['pu'] = compute_pu_weights(parameters["pu_corrections_target"], weights["nominal"], scalars["Pileup_nTrueInt"], scalars["Pileup_nTrueInt"])
-			weights["nominal"] = weights["nominal"] * weights['pu']
+			#weights["nominal"] = weights["nominal"] * weights['pu']
 
 			# lepton SF corrections
 			#electron_weights = compute_lepton_weights(events.GoodElectron, evaluator, ["el_triggerSF", "el_recoSF", "el_idSF"], lepton_eta=(events.GoodElectron.deltaEtaSC + events.GoodElectron.eta))
@@ -327,10 +325,12 @@ class ttHbb(processor.ProcessorABC):
 			#weights["nominal"] = weights["nominal"] * weights['lepton']
 
 		mask_events = {
-		  'trigger'  : mask_events_trigger,
-		  'resolved' : mask_events_res,
+		  #'trigger'  : mask_events_trigger,
+		  #'resolved' : mask_events_res,
 		  'basic'    : mask_events_boost,
-		  'joint'    : mask_events_OS
+		  '2l2b'     : mask_events_2l2b,
+		  '2l2bmw'   : mask_events_2l2bmw,
+		  #'joint'    : mask_events_OS
 		}
 		#mask_events['2J']   = mask_events['basic'] & (njets>1)
 
@@ -401,74 +401,74 @@ class ttHbb(processor.ProcessorABC):
 		"""
 		############# histograms
 		vars_to_plot = {
-		'muons_pt'					: muons.pt.flatten(),
-		'muons_eta'					: muons.eta.flatten(),
-		'goodmuons_pt'				: events.GoodMuon.pt[mask_events['trigger']].flatten(),
-		'goodmuons_eta'				: events.GoodMuon.eta[mask_events['trigger']].flatten(),
-		'goodmuons_res_pt'			: events.GoodMuon.pt[mask_events['resolved']].flatten(),
-		'goodmuons_res_eta'			: events.GoodMuon.eta[mask_events['resolved']].flatten(),
-		'goodmuons_boost_pt'		: events.GoodMuon.pt[mask_events['basic']].flatten(),
-		'goodmuons_boost_eta'		: events.GoodMuon.eta[mask_events['basic']].flatten(),
-		'goodmuons_cuts_pt'			: events.GoodMuon.pt[mask_events['joint']].flatten(),
-		'goodmuons_cuts_eta'		: events.GoodMuon.eta[mask_events['joint']].flatten(),
-		'electrons_pt'				: electrons.pt.flatten(),
-		'electrons_eta'				: electrons.eta.flatten(),
-		'goodelectrons_pt'			: events.GoodElectron.pt[mask_events['trigger']].flatten(),
-		'goodelectrons_eta'			: events.GoodElectron.eta[mask_events['trigger']].flatten(),
-		'goodelectrons_res_pt'		: events.GoodElectron.pt[mask_events['resolved']].flatten(),
-		'goodelectrons_res_eta'		: events.GoodElectron.eta[mask_events['resolved']].flatten(),
-		'goodelectrons_boost_pt'	: events.GoodElectron.pt[mask_events['basic']].flatten(),
-		'goodelectrons_boost_eta'	: events.GoodElectron.eta[mask_events['basic']].flatten(),
-		'goodelectrons_cuts_pt'		: events.GoodElectron.pt[mask_events['joint']].flatten(),
-		'goodelectrons_cuts_eta'	: events.GoodElectron.eta[mask_events['joint']].flatten(),
-		'jets_pt'					: jets.pt.flatten(),
-		'jets_eta'					: jets.eta.flatten(),
-		'goodjets_pt'				: events.GoodJet.pt[mask_events['trigger']].flatten(),
-		'goodjets_eta'				: events.GoodJet.eta[mask_events['trigger']].flatten(),
-		'goodjets_cuts_pt'			: events.GoodJet.pt[mask_events['joint']].flatten(),
-		'goodjets_cuts_eta'			: events.GoodJet.eta[mask_events['joint']].flatten(),
+		'muons_pt'					: muons.pt,
+		'muons_eta'					: muons.eta,
+		'goodmuons_pt'				: events.GoodMuon.pt,
+		'goodmuons_eta'				: events.GoodMuon.eta,
+		#'goodmuons_res_pt'			: events.GoodMuon.pt[mask_events['resolved']],
+		#'goodmuons_res_eta'			: events.GoodMuon.eta[mask_events['resolved']],
+		#'goodmuons_boost_pt'		: events.GoodMuon.pt[mask_events['basic']],
+		#'goodmuons_boost_eta'		: events.GoodMuon.eta[mask_events['basic']],
+		#'goodmuons_cuts_pt'			: events.GoodMuon.pt[mask_events['joint']],
+		#'goodmuons_cuts_eta'		: events.GoodMuon.eta[mask_events['joint']],
+		'electrons_pt'				: electrons.pt,
+		'electrons_eta'				: electrons.eta,
+		'goodelectrons_pt'			: events.GoodElectron.pt,
+		'goodelectrons_eta'			: events.GoodElectron.eta,
+		#'goodelectrons_res_pt'		: events.GoodElectron.pt[mask_events['resolved']],
+		#'goodelectrons_res_eta'		: events.GoodElectron.eta[mask_events['resolved']],
+		#'goodelectrons_boost_pt'	: events.GoodElectron.pt[mask_events['basic']],
+		#'goodelectrons_boost_eta'	: events.GoodElectron.eta[mask_events['basic']],
+		#'goodelectrons_cuts_pt'		: events.GoodElectron.pt[mask_events['joint']],
+		#'goodelectrons_cuts_eta'	: events.GoodElectron.eta[mask_events['joint']],
+		'jets_pt'					: jets.pt,
+		'jets_eta'					: jets.eta,
+		'goodjets_pt'				: events.GoodJet.pt,
+		'goodjets_eta'				: events.GoodJet.eta,
+		#'goodjets_cuts_pt'			: events.GoodJet.pt[mask_events['joint']],
+		#'goodjets_cuts_eta'			: events.GoodJet.eta[mask_events['joint']],
 		'nleps'             		: nleps,
-		'nleps_cuts'             	: nleps[mask_events['joint']],
+		#'nleps_cuts'             	: nleps[mask_events['joint']],
 		'njets'             		: njets,
-		'njets_cuts'             	: njets[mask_events['joint']],
+		#'njets_cuts'             	: njets[mask_events['joint']],
 		'ngoodjets'         		: ngoodjets,
-		'ngoodjets_cuts'      		: ngoodjets[mask_events['joint']],
+		#'ngoodjets_cuts'      		: ngoodjets[mask_events['joint']],
 		'btags'             		: btags,
-		'btags_cuts'           		: btags[mask_events['joint']],
+		#'btags_cuts'           		: btags[mask_events['joint']],
 		'btags_resolved'    		: btags_resolved,
-		'btags_resolved_cuts'  		: btags_resolved[mask_events['joint']],
+		#'btags_resolved_cuts'  		: btags_resolved[mask_events['joint']],
 		'nfatjets'          		: nfatjets,
-		'nfatjets_cuts'        		: nfatjets[mask_events['joint']],
+		#'nfatjets_cuts'        		: nfatjets[mask_events['joint']],
 		'charge_sum'				: charge_sum,
-		'charge_sum_cuts'			: charge_sum[mask_events['joint']],
-		'met'               		: MET.pt.flatten(),
-		'met_cuts'             		: MET.pt[mask_events['joint']].flatten(),
+		#'charge_sum_cuts'			: charge_sum[mask_events['joint']],
+		'met'               		: MET.pt,
+		#'met_cuts'             		: MET.pt[mask_events['joint']],
 		'mll'						: mll,
-		'mll_cuts'					: mll[mask_events['joint']],
-		'leading_jet_pt'    		: leading_jet_pt[mask_events['joint']],
-		'leading_jet_eta'   		: leading_jet_eta[mask_events['joint']],
-		'leadAK8JetMass'    		: leading_fatjet_SDmass[mask_events['joint']],
-		'leadAK8JetMass_boost' 		: leading_fatjet_SDmass[mask_events['basic']],
-		'leadAK8JetPt'      		: leading_fatjet_pt[mask_events['joint']],
-		'leadAK8JetPt_boost'   		: leading_fatjet_pt[mask_events['basic']],
-		'leadAK8JetEta'     		: leading_fatjet_eta[mask_events['joint']],
-		'leadAK8JetEta_boost'  		: leading_fatjet_eta[mask_events['basic']],
+		#'mll_cuts'					: mll[mask_events['joint']],
+		'leading_jet_pt'    		: leading_jet_pt,
+		'leading_jet_eta'   		: leading_jet_eta,
+		'leadAK8JetMass'    		: leading_fatjet_SDmass,
+		#'leadAK8JetMass_boost' 		: leading_fatjet_SDmass[mask_events['basic']],
+		'leadAK8JetPt'      		: leading_fatjet_pt,
+		#'leadAK8JetPt_boost'   		: leading_fatjet_pt[mask_events['basic']],
+		'leadAK8JetEta'     		: leading_fatjet_eta,
+		#'leadAK8JetEta_boost'  		: leading_fatjet_eta[mask_events['basic']],
 		#'leadAK8JetHbb'     		: leading_fatjet_Hbb[mask_events['joint']],
 		#'leadAK8JetHbb_boost' 		: leading_fatjet_Hbb[mask_events['basic']],
 		#'leadAK8JetTau21'   		: leading_fatjet_tau21[mask_events['joint']],
 		#'leadAK8JetTau21_boost'	: leading_fatjet_tau21[mask_events['basic']],
-		'leadAK8JetRho'     		: leading_fatjet_rho[mask_events['joint']],
-		'leadAK8JetRho_boost'   	: leading_fatjet_rho[mask_events['basic']],
-		'lepton_plus_pt'            : lepton_plus_pt[mask_events['joint']],
-		'lepton_plus_eta'           : lepton_plus_eta[mask_events['joint']],
-		'lepton_minus_pt'           : lepton_minus_pt[mask_events['joint']],
-		'lepton_minus_eta'          : lepton_minus_eta[mask_events['joint']],
-		'leading_lepton_pt'         : leading_lepton_pt[mask_events['joint']],
-		'leading_lepton_eta'        : leading_lepton_eta[mask_events['joint']],
+		'leadAK8JetRho'     		: leading_fatjet_rho,
+		#'leadAK8JetRho_boost'   	: leading_fatjet_rho[mask_events['basic']],
+		'lepton_plus_pt'            : lepton_plus_pt,
+		'lepton_plus_eta'           : lepton_plus_eta,
+		'lepton_minus_pt'           : lepton_minus_pt,
+		'lepton_minus_eta'          : lepton_minus_eta,
+		'leading_lepton_pt'         : leading_lepton_pt,
+		'leading_lepton_eta'        : leading_lepton_eta,
 		'ptll'                      : ptll,
-		'ptll_cuts'                 : ptll[mask_events['joint']],
+		#'ptll_cuts'                 : ptll[mask_events['joint']],
 		'mt_ww'                     : mt_ww,
-		'mt_ww_cuts'                : mt_ww[mask_events['joint']],
+		#'mt_ww_cuts'                : mt_ww[mask_events['joint']],
 		'pnu_x'						: pnu['x'],
 		'pnu_y'						: pnu['y'],
 		'pnu_z'						: pnu['z'],
@@ -522,28 +522,51 @@ class ttHbb(processor.ProcessorABC):
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
 		"""
 
-		for var_name, var in vars_to_plot.items():
-			try:
-				print(var_name, len(var), len(weights['nominal']))
-				output[var_name].fill(dataset=dataset, values=var, weight=weights["nominal"])
-			except KeyError:
-				print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings')
+		for wn,w in weights.items():
+			if not wn in ['ones', 'nominal']: continue
+			for mask_name, mask in mask_events.items():
+				if not mask_name in ['basic', '2l2b', '2l2bmw']: continue
+				for var_name, var in vars_to_plot.items():
+					try:
+						#w = weights['nominal'][mask]
+						#values = var[mask]
+						if var_name.split("_")[0] in ["muons", "goodmuons", "electrons", "goodelectrons", "jets", "goodjets"]:
+							continue
+							#values = awkward1.flatten(var[mask])
+							#output[f'{var_name}_{mask_name}'].fill(dataset=dataset, values=values)
+						else:
+							if wn == 'ones':
+								output[f'{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=var[mask])
+							else:
+								output[f'{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=var[mask], weight=w[mask])
+
+					except KeyError:
+						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings ({mask_name})')
 
 		return output
 
 	def postprocess(self, accumulator):
+
+		#print("Neutrino momenta efficiency = ", self._nsolved/self._n2l2b)
+
 		plot_dir = "plots/dilepton/"
 		print("Saving plots in " + plot_dir)
 
 		if not os.path.exists(plot_dir):
 			os.makedirs(plot_dir)
 
-		for var_name in self._varnames:
-			fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,6))
-			hist.plot1d(accumulator[var_name], overlay='dataset', fill_opts=self._fill_opts, error_opts=self._error_opts)
-			plt.xlim(*self._variables[var_name]['xlim'])
-			fig.savefig(plot_dir + var_name + ".png", dpi=300, format="png")
-			plt.close(ax.figure)
+		for wn in self._weights_list:
+			if not wn in ['ones', 'nominal']: continue
+			for mask_name in self._mask_events_list:
+				if not mask_name in ['basic', '2l2b', '2l2bmw']: continue
+				for var_name in self._varnames:
+					if var_name.split("_")[0] in ["muons", "goodmuons", "electrons", "goodelectrons", "jets", "goodjets"]:
+						continue
+					fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,6))
+					hist.plot1d(accumulator[f'{var_name}_{mask_name}_weights_{wn}'], overlay='dataset', fill_opts=self._fill_opts, error_opts=self._error_opts, density=True)
+					plt.xlim(*self._variables[var_name]['xlim'])
+					fig.savefig(plot_dir + f'{var_name}_{mask_name}_weights_{wn}' + ".png", dpi=300, format="png")
+					plt.close(ax.figure)
 
 		"""
 		plot_dir = "plots/comparison/"
@@ -590,7 +613,7 @@ if __name__ == "__main__":
 	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
 	#parser.add_argument('--corrections', action='store_true', help='Flag to include corrections')
 	#parser.add_argument('filenames', nargs=argparse.REMAINDER)
-	parser.add_argument('--machine', action='store', choices=['lxplus', 't3'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
+	parser.add_argument('--machine', action='store', choices=['lxplus', 't3', 'local'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
 	parser.add_argument('--workers', action='store', help='Number of workers (CPUs) to use', type=int, default=10)
 	parser.add_argument('--chunksize', action='store', help='Number of events in a single chunk', type=int, default=30000)
 	parser.add_argument('--maxchunks', action='store', help='Maximum number of chunks', type=int, default=25)
@@ -624,8 +647,12 @@ if __name__ == "__main__":
 		ext.finalize()
 		evaluator = ext.make_evaluator()
 
-	f1 = open("datasets/RunIIFall17NanoAODv7PostProc/ttHTobb_2017.txt", 'r')
-	f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTTo2L2Nu_2017.txt", 'r')
+	# PostProcessed NanoAOD
+	#f1 = open("datasets/RunIIFall17NanoAODv7PostProc/ttHTobb_2017.txt", 'r')
+	#f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTTo2L2Nu_2017.txt", 'r')
+	# Central NanoAOD
+	f1 = open("datasets/RunIIFall17NanoAODv7/ttHTobb_2017.txt", 'r')
+	f2 = open("datasets/RunIIFall17NanoAODv7/TTTo2L2Nu_2017.txt", 'r')
 	samples = { "ttHTobb": f1.read().splitlines(), "TTTo2L2Nu": f2.read().splitlines() }
 	f1.close()
 	f2.close()
@@ -633,17 +660,15 @@ if __name__ == "__main__":
 		for sample in samples:
 			for (i, file) in enumerate(samples[sample]):
 				samples[sample][i] = file.replace('root://xrootd-cms.infn.it/', '/pnfs/psi.ch/cms/trivcat')
-
-	"""
-	samples = {
-		"ttHTobb": [
-			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_24_ttHbb.root",
-		],
-		"TTToSemiLeptonic": [
-			"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_45_tt_semileptonic.root"
-		]
-	}
-	"""
+	if args.machine == 'local':
+		samples = {
+			"ttHTobb": [
+				"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_24_ttHbb.root",
+			],
+			"TTTo2L2Nu": [
+				"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_45_tt_semileptonic.root"
+			]
+		}
 
 	MyProcessor = ttHbb()
 	#MyProcessor = ttHbb(sample=args.sample)
