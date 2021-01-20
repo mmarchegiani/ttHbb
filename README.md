@@ -3,10 +3,10 @@ Framework for accelerated ttH(bb) columnar analysis with Coffea (https://coffeat
 ## Getting started
 To run the preliminary version of the analysis script:
 ~~~
-python run_analysis.py --sample 2017 --machine lxplus
+python dilepton_analysis.py --sample 2017 --machine lxplus
 ~~~
 The executor parameters can be specified as arguments:
 ~~~
-python run_analysis.py --sample 2017 --machine lxplus --workers 10 --chunksize 30000 --maxchunks 25
+python dilepton_analysis.py --sample 2017 --machine lxplus --workers 10 --chunksize 30000 --maxchunks 25
 ~~~
 
