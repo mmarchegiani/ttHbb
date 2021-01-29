@@ -310,6 +310,8 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 
 	pnu    = {'x' : [], 'y' : [], 'z' : []}
 	pnubar = {'x' : [], 'y' : [], 'z' : []}
+	pbjets = {'x' : [], 'y' : [], 'z' : [], 'mass' : []}
+	pbbarjets = {'x' : [], 'y' : [], 'z' : [], 'mass' : []}
 
 	for ievt in range(len(pairs)):
 		pnu_x_list = []
@@ -318,7 +320,17 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 		pnubar_x_list = []
 		pnubar_y_list = []
 		pnubar_z_list = []
+		pbjets_x_list = []
+		pbjets_y_list = []
+		pbjets_z_list = []
+		pbjets_mass_list = []
+		pbbarjets_x_list = []
+		pbbarjets_y_list = []
+		pbbarjets_z_list = []
+		pbbarjets_mass_list = []
 		m_w_plus_reco_list = []
+		b_list = []
+		b_bar_list = []
 		l     = None
 		l_bar = None
 		MET   = None
@@ -332,6 +344,16 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 					pnubar['x'].append(-9999.9)
 					pnubar['y'].append(-9999.9)
 					pnubar['z'].append(-9999.9)
+					pbjets['x'].append(-9999.9)
+					pbjets['y'].append(-9999.9)
+					pbjets['z'].append(-9999.9)
+					pbjets['mass'].append(-9999.9)
+					pbbarjets['x'].append(-9999.9)
+					pbbarjets['y'].append(-9999.9)
+					pbbarjets['z'].append(-9999.9)
+					pbbarjets['mass'].append(-9999.9)
+					#b_jets.append([])
+					#b_bar_jets.append([])
 				continue
 			for i in range(pairs.counts[ievt]):
 				l     = leptons.p4[ievt,0]
@@ -340,9 +362,13 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				if not reverse:
 					b     = pairs.i0.p4[ievt,i]
 					b_bar = pairs.i1.p4[ievt,i]
+					b_obj = pairs.i0[ievt,i]
+					b_bar_obj = pairs.i1[ievt,i]
 				else:
 					b     = pairs.i1.p4[ievt,i]
 					b_bar = pairs.i0.p4[ievt,i]
+					b_obj = pairs.i1[ievt,i]
+					b_bar_obj = pairs.i0[ievt,i]
 
 				a1 = ( (b.energy + l_bar.energy)*(M_W**2 - l_bar.mass**2)
 					   - l_bar.energy*(M_t**2 - M_b**2 - l_bar.mass**2)
@@ -424,14 +450,24 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				pnu_z = None
 				m_w_plus_reco = None
 				if len(pnu_xs) == 0:
-					if ((reverse == True) & (len(pnu_x_list) == 0)):
+					if ((reverse == True) & (len(pnu_x_list) == 0) & (i == pairs.counts[ievt]-1)):
 						pnu_x_list = [-9999.9]
 						pnu_y_list = [-9999.9]
 						pnu_z_list = [-9999.9]
 						pnubar_x_list = [-9999.9]
 						pnubar_y_list = [-9999.9]
 						pnubar_z_list = [-9999.9]
+						pbjets_x_list = [-9999.9]
+						pbjets_y_list = [-9999.9]
+						pbjets_z_list = [-9999.9]
+						pbjets_mass_list = [-9999.9]
+						pbbarjets_x_list = [-9999.9]
+						pbbarjets_y_list = [-9999.9]
+						pbbarjets_z_list = [-9999.9]
+						pbbarjets_mass_list = [-9999.9]
 						m_w_plus_reco_list = [-9999.9]
+						#b_list = []
+						#b_bar_list = []
 					continue
 				else:
 					c0 = c00
@@ -466,7 +502,17 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				pnubar_x_list.append(pnubar_x)
 				pnubar_y_list.append(pnubar_y)
 				pnubar_z_list.append(pnubar_z)
+				pbjets_x_list.append(b.x)
+				pbjets_y_list.append(b.y)
+				pbjets_z_list.append(b.z)
+				pbjets_mass_list.append(b.mass)
+				pbbarjets_x_list.append(b_bar.x)
+				pbbarjets_y_list.append(b_bar.y)
+				pbbarjets_z_list.append(b_bar.z)
+				pbbarjets_mass_list.append(b_bar.mass)
 				m_w_plus_reco_list.append(m_w_plus_reco)
+				b_list.append(b_obj)
+				b_bar_list.append(b_bar_obj)
 		# Naive choice: the first (b, b_bar) configuration is chosen
 		if len(pnu_x_list) != 0:
 			j_min = np.argmin(np.abs(np.array(m_w_plus_reco_list) - M_W))
@@ -476,19 +522,73 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 			pnubar['x'].append(pnubar_x_list[j_min])
 			pnubar['y'].append(pnubar_y_list[j_min])
 			pnubar['z'].append(pnubar_z_list[j_min])
+			pbjets['x'].append(pbjets_x_list[j_min])
+			pbjets['y'].append(pbjets_y_list[j_min])
+			pbjets['z'].append(pbjets_z_list[j_min])
+			pbjets['mass'].append(pbjets_mass_list[j_min])
+			pbbarjets['x'].append(pbbarjets_x_list[j_min])
+			pbbarjets['y'].append(pbbarjets_y_list[j_min])
+			pbbarjets['z'].append(pbbarjets_z_list[j_min])
+			pbbarjets['mass'].append(pbbarjets_mass_list[j_min])
+			#if len(b_list) == 2:
+			#	b_jets.append([b_list[j_min]])
+			#	b_bar_jets.append([b_bar_list[j_min]])
+			#elif len(b_list) == 1:
+			#	b_jets.append([b_list[0]])
+			#	b_bar_jets.append([b_bar_list[0]])
+			#elif len(b_list) == 0:
+			#	b_jets.append([])
+			#	b_bar_jets.append([])
 
 	# Here we have to cleverly organise the output as the number of sets of solutions is equal to N_b(N_b - 1)
 	# Then I have to choose a criterion in order to choose the correct (b, b_bar) pair
 	for item in pnu.keys():
 		pnu[item] = np.array(pnu[item])
 		pnubar[item] = np.array(pnubar[item])
+	for item in pbjets.keys():
+		pbjets[item] = np.array(pbjets[item])
+		pbbarjets[item] = np.array(pbbarjets[item])
 
-	return pnu, pnubar
+	return pnu, pnubar, pbjets, pbbarjets
 
+def obj_reco(leptons, antileptons, neutrinos, antineutrinos, bjets, bbarjets, mask_events):
+
+	wm      = leptons.p4 + antineutrinos.p4
+	wp      = antileptons.p4 + neutrinos.p4
+	top     = antileptons.p4 + neutrinos.p4 + bjets.p4
+	antitop = leptons.p4 + antineutrinos.p4 + bbarjets.p4
+	tt 		= top + antitop
+
+	w_minus = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
+	w_plus  = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
+	t       = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
+	tbar    = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
+	ttbar   = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
+
+	def get_var(object, varname, default=-999.9):
+
+		default = ak.from_iter(len(mask_events)*[default])
+		values = ak.max(getattr(object, varname), axis=1)
+		var    = ak.where(mask_events, values, default)
+		return ak.from_iter(var)
+
+	for varname in t.keys():
+		if varname == 'eta':
+			default = -9.
+		else:
+			default = -999.9
+		w_minus[varname] = get_var(wm, varname, default)
+		w_plus[varname]  = get_var(wp, varname, default)
+		t[varname]       = get_var(top, varname, default)
+		tbar[varname]    = get_var(antitop, varname, default)
+		ttbar[varname]   = get_var(tt, varname, default)
+
+	return w_minus, w_plus, t, tbar, ttbar
+
+"""
 def w_mass(leptons, neutrinos, mask_events):
 	
 	lepW = leptons.p4 + neutrinos.p4
-
 	#for ievt in range(mask_events):
 	#	if mask_events[i] == False:
 	m_w = lepW.mass
@@ -500,3 +600,35 @@ def w_mass(leptons, neutrinos, mask_events):
 			m_w_filled.append(-999.9)
 
 	return ak.from_iter(m_w_filled)
+
+def t_mass(leptons, neutrinos, bjets, mask_events):
+	
+	top = leptons.p4 + neutrinos.p4 + bjets.p4
+	#for ievt in range(mask_events):
+	#	if mask_events[i] == False:
+	m_t = top.mass
+	m_t_filled = []
+	for (i, mass) in enumerate(m_t):
+		if mask_events[i]:
+			m_t_filled.append(mass[0])
+		else:
+			m_t_filled.append(-999.9)
+
+	return ak.from_iter(m_t_filled)
+
+def top_reco(leptons, antileptons, neutrinos, antineutrinos, bjets, bbarjets, mask_events):
+
+	top     = antileptons.p4 + neutrinos.p4 + bjets.p4
+	antitop = leptons.p4 + antineutrinos.p4 + bbarjets.p4
+	tt 		= top + antitop
+
+	m_tt = tt.mass
+	m_tt_filled = []
+	for (i, mass) in enumerate(m_tt):
+		if mask_events[i]:
+			m_tt_filled.append(mass[0])
+		else:
+			m_tt_filled.append(-999.9)
+
+	return ak.from_iter(m_tt_filled)
+"""
