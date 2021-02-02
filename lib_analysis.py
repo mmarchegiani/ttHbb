@@ -128,6 +128,14 @@ def calc_dr(objects1, objects2):
 
 	return get_leading_value(ak.from_iter(np.sqrt(calc_dr2(pairs))))
 
+def calc_dphi(objects1, objects2):
+
+	pairs = objects1.cross(objects2)
+
+	dphi = (pairs.i0.phi - pairs.i1.phi + np.pi) % (2*np.pi) - np.pi
+
+	return get_leading_value(ak.from_iter(dphi))
+
 def pass_dr(pairs, dr):
 
 	return calc_dr2(pairs) > dr**2

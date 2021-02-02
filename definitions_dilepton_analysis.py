@@ -1,4 +1,4 @@
-
+from math import pi
 
 ######################################## Selection criteria / Inputs for corrections ############################################
 
@@ -641,12 +641,19 @@ histogram_settings = {
         'm_w_plus'                  : {'binning' : (0,1500,301), 'xlim' : (0,500),  'xlabel' : "$m_{W^+}$ [GeV]"},
         'm_w_minus'                 : {'binning' : (0,1500,301), 'xlim' : (0,500),  'xlabel' : "$m_{W^-}$ [GeV]"},
         'm_top'                     : {'binning' : (0,2000,401), 'xlim' : (0,500),  'xlabel' : "$m_{t}$ [GeV]"},
-        'm_top_bar'                 : {'binning' : (0,2000,401), 'xlim' : (0,500),  'xlabel' : r'$m_{\bar{t}}$ [GeV]'},
+        'm_topbar'                 : {'binning' : (0,2000,401), 'xlim' : (0,500),  'xlabel' : r'$m_{\bar{t}}$ [GeV]'},
         'm_tt'                      : {'binning' : (0,3000,301), 'xlim' : (0,2000), 'xlabel' : r'$m_{t\bar{t}}$ [GeV]'},
-        'tt_pt'                     : {'binning' : (0,2000,401), 'xlim' : (0,1000), 'xlabel' : r'$p_{T}^{t\bar{t}}$ [GeV]'},
-        'deltaRHiggsTop'            : {'binning' : (0,5,31),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t}$'},
-        'deltaRHiggsTopbar'         : {'binning' : (0,5,31),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,\bar{t}}$'},
-        'deltaRHiggsTT'             : {'binning' : (0,5,31),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t\bar{t}}$'},
+        'tt_pt'                     : {'binning' : (0,2000,201), 'xlim' : (0,1000), 'xlabel' : r'$p_{T}^{t\bar{t}}$ [GeV]'},
+        'top_pt'                    : {'binning' : (0,2000,201), 'xlim' : (0,1000), 'xlabel' : r'$p_{T}^{t}$ [GeV]'},
+        'topbar_pt'                 : {'binning' : (0,2000,201), 'xlim' : (0,1000), 'xlabel' : r'$p_{T}^{\bar{t}}$ [GeV]'},
+        'deltaRHiggsTop'            : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t}$'},
+        'deltaRHiggsTopbar'         : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,\bar{t}}$'},
+        'deltaRHiggsTT'             : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t\bar{t}}$'},
+        'deltaRTopTopbar'           : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t\bar{t}}$'},
+        'deltaPhiHiggsTop'          : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,t}$'},
+        'deltaPhiHiggsTopbar'       : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,\bar{t}}$'},
+        'deltaPhiHiggsTT'           : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,t\bar{t}}$'},
+        'deltaPhiTopTopbar'         : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,t\bar{t}}$'},
         #'PV_npvsGood'              : {'binning' : (0,101,102),  'xlim' : (0,101)},
         #'weights'                  : {'binning' : (-2,2,401),   'xlim' : (-1.5,1.5)},
     },
