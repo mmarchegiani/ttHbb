@@ -662,23 +662,23 @@ histogram_settings = {
         'm_top_vs_pnu_x' : {
             'pnu_x'                     : {'binning' : (0,1000,201), 'xlim' : (0,300), 'xlabel' : r'|$p_{\nu_x}$| [GeV]'},
             'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
-        }
+        },
         'm_top_vs_met' : {
             'met'                       : {'binning' : (0,2000,201), 'xlim' : (0,300), 'xlabel' : "$p_{T}^{MET}$ [GeV]"},
             'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
-        }
+        },
         'm_top_vs_leading_lepton_pt' : {
             'leading_lepton_pt'         : {'binning' : (0,2000,201), 'xlim' : (0,500), 'xlabel' : "$p_{T}^{\ell,1}$ [GeV]"},
             'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
-        }
+        },
         'm_top_vs_leadAK8JetHbb' : {
             'leadAK8JetHbb'             : {'binning' : (0,1,51),     'xlim' : (0,1),   'xlabel' : r'btagDDBvL'},
             'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
-        }
+        },
         'm_top_vs_btags' : {
             'btags'                     : {'binning' : (0,20,21),    'xlim' : (0,20),  'xlabel' : "$N_{btags}$"},
             'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
-        }
+        },
 
     },
     'fill_opts' : {

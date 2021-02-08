@@ -446,6 +446,7 @@ class ttHbb(processor.ProcessorABC):
 		'leadAK8JetPt'      		: leading_fatjet_pt,
 		'leadAK8JetEta'     		: leading_fatjet_eta,
 		'leadAK8JetRho'     		: leading_fatjet_rho,
+		'leadAK8JetHbb'				: leading_fatjet_Hbb,
 		'lepton_plus_pt'            : lepton_plus_pt,
 		'lepton_plus_eta'           : lepton_plus_eta,
 		'lepton_minus_pt'           : lepton_minus_pt,
@@ -476,14 +477,29 @@ class ttHbb(processor.ProcessorABC):
 		'deltaPhiHiggsTopbar'		: deltaPhiHiggsTopbar,
 		'deltaPhiHiggsTT'			: deltaPhiHiggsTT,
 		'deltaPhiTopTopbar'			: deltaPhiTopTopbar,
-		'leading_fatjet_Hbb'		: leading_fatjet_Hbb,
 		}
 
 		vars2d_to_plot = {
 			'm_top_vs_pnu_x' : {
 				'pnu_x' : abs(pnu['x']),
 				'm_top' : ptop['mass'],
-			}
+			},
+			'm_top_vs_met' : {
+				'met'   : MET.pt,
+				'm_top' : ptop['mass'],
+			},
+			'm_top_vs_leading_lepton_pt' : {
+				'leading_lepton_pt' : MET.pt,
+				'm_top'             : ptop['mass'],
+			},
+			'm_top_vs_leadAK8JetHbb' : {
+				'leadAK8JetHbb' : leading_fatjet_Hbb,
+				'm_top'         : ptop['mass'],
+			},
+			'm_top_vs_btags' : {
+				'btags' : btags,
+				'm_top' : ptop['mass'],
+			},
 		}
 
 		for wn,w in weights.items():
