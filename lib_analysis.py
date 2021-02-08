@@ -132,7 +132,7 @@ def calc_dphi(objects1, objects2):
 
 	pairs = objects1.cross(objects2)
 
-	dphi = (pairs.i0.phi - pairs.i1.phi + np.pi) % (2*np.pi) - np.pi
+	dphi = abs( (pairs.i0.phi - pairs.i1.phi + np.pi) % (2*np.pi) - np.pi )
 
 	return get_leading_value(ak.from_iter(dphi))
 
