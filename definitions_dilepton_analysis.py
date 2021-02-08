@@ -641,7 +641,7 @@ histogram_settings = {
         'm_w_plus'                  : {'binning' : (0,1500,301), 'xlim' : (0,500),  'xlabel' : "$m_{W^+}$ [GeV]"},
         'm_w_minus'                 : {'binning' : (0,1500,301), 'xlim' : (0,500),  'xlabel' : "$m_{W^-}$ [GeV]"},
         'm_top'                     : {'binning' : (0,2000,401), 'xlim' : (0,500),  'xlabel' : "$m_{t}$ [GeV]"},
-        'm_topbar'                 : {'binning' : (0,2000,401), 'xlim' : (0,500),  'xlabel' : r'$m_{\bar{t}}$ [GeV]'},
+        'm_topbar'                  : {'binning' : (0,2000,401), 'xlim' : (0,500),  'xlabel' : r'$m_{\bar{t}}$ [GeV]'},
         'm_tt'                      : {'binning' : (0,3000,301), 'xlim' : (0,2000), 'xlabel' : r'$m_{t\bar{t}}$ [GeV]'},
         'tt_pt'                     : {'binning' : (0,2000,201), 'xlim' : (0,1000), 'xlabel' : r'$p_{T}^{t\bar{t}}$ [GeV]'},
         'top_pt'                    : {'binning' : (0,2000,201), 'xlim' : (0,1000), 'xlabel' : r'$p_{T}^{t}$ [GeV]'},
@@ -649,13 +649,37 @@ histogram_settings = {
         'deltaRHiggsTop'            : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t}$'},
         'deltaRHiggsTopbar'         : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,\bar{t}}$'},
         'deltaRHiggsTT'             : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t\bar{t}}$'},
-        'deltaRTopTopbar'           : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{H,t\bar{t}}$'},
-        'deltaPhiHiggsTop'          : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,t}$'},
-        'deltaPhiHiggsTopbar'       : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,\bar{t}}$'},
-        'deltaPhiHiggsTT'           : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,t\bar{t}}$'},
-        'deltaPhiTopTopbar'         : {'binning' : (-pi,pi,33),  'xlim' : (-pi,pi), 'xlabel' : r'${\Delta}\phi_{H,t\bar{t}}$'},
+        'deltaRTopTopbar'           : {'binning' : (0,5,33),     'xlim' : (0,5),    'xlabel' : r'${\Delta}R_{t,\bar{t}}$'},
+        'deltaPhiHiggsTop'          : {'binning' : (0,pi,33),    'xlim' : (0,pi),   'xlabel' : r'${\Delta}\phi_{H,t}$'},
+        'deltaPhiHiggsTopbar'       : {'binning' : (0,pi,33),    'xlim' : (0,pi),   'xlabel' : r'${\Delta}\phi_{H,\bar{t}}$'},
+        'deltaPhiHiggsTT'           : {'binning' : (0,pi,33),    'xlim' : (0,pi),   'xlabel' : r'${\Delta}\phi_{H,t\bar{t}}$'},
+        'deltaPhiTopTopbar'         : {'binning' : (0,pi,33),    'xlim' : (0,pi),   'xlabel' : r'${\Delta}\phi_{t,\bar{t}}$'},
+        'leadAK8JetHbb'             : {'binning' : (0,1,51),     'xlim' : (0,1),    'xlabel' : r'btagDDBvL'},
         #'PV_npvsGood'              : {'binning' : (0,101,102),  'xlim' : (0,101)},
         #'weights'                  : {'binning' : (-2,2,401),   'xlim' : (-1.5,1.5)},
+    },
+    'variables2d' : {
+        'm_top_vs_pnu_x' : {
+            'pnu_x'                     : {'binning' : (0,1000,201), 'xlim' : (0,300), 'xlabel' : r'|$p_{\nu_x}$| [GeV]'},
+            'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
+        }
+        'm_top_vs_met' : {
+            'met'                       : {'binning' : (0,2000,201), 'xlim' : (0,300), 'xlabel' : "$p_{T}^{MET}$ [GeV]"},
+            'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
+        }
+        'm_top_vs_leading_lepton_pt' : {
+            'leading_lepton_pt'         : {'binning' : (0,2000,201), 'xlim' : (0,500), 'xlabel' : "$p_{T}^{\ell,1}$ [GeV]"},
+            'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
+        }
+        'm_top_vs_leadAK8JetHbb' : {
+            'leadAK8JetHbb'             : {'binning' : (0,1,51),     'xlim' : (0,1),   'xlabel' : r'btagDDBvL'},
+            'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
+        }
+        'm_top_vs_btags' : {
+            'btags'                     : {'binning' : (0,20,21),    'xlim' : (0,20),  'xlabel' : "$N_{btags}$"},
+            'm_top'                     : {'binning' : (0,2000,201), 'ylim' : (0,500), 'ylabel' : "$m_{t}$ [GeV]"},
+        }
+
     },
     'fill_opts' : {
         'facecolor': "None",
