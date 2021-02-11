@@ -321,7 +321,10 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 	pbjets = {'x' : [], 'y' : [], 'z' : [], 'mass' : []}
 	pbbarjets = {'x' : [], 'y' : [], 'z' : [], 'mass' : []}
 
-	for ievt in range(len(pairs)):
+	nEvents = len(pairs)
+	mask_events_withsol = np.ones(nEvents, dtype=np.bool)
+
+	for ievt in range(nEvents):
 		pnu_x_list = []
 		pnu_y_list = []
 		pnu_z_list = []
@@ -459,6 +462,7 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				m_w_plus_reco = None
 				if len(pnu_xs) == 0:
 					if ((reverse == True) & (len(pnu_x_list) == 0) & (i == pairs.counts[ievt]-1)):
+						mask_events_withsol[i] = False
 						pnu_x_list = [-9999.9]
 						pnu_y_list = [-9999.9]
 						pnu_z_list = [-9999.9]
@@ -474,8 +478,6 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 						pbbarjets_z_list = [-9999.9]
 						pbbarjets_mass_list = [-9999.9]
 						m_w_plus_reco_list = [-9999.9]
-						#b_list = []
-						#b_bar_list = []
 					continue
 				else:
 					c0 = c00
@@ -557,7 +559,7 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 		pbjets[item] = np.array(pbjets[item])
 		pbbarjets[item] = np.array(pbbarjets[item])
 
-	return pnu, pnubar, pbjets, pbbarjets
+	return pnu, pnubar, pbjets, pbbarjets, mask_events_withsol
 
 def obj_reco(leptons, antileptons, neutrinos, antineutrinos, bjets, bbarjets, mask_events):
 

@@ -39,11 +39,13 @@ class ttHbb(processor.ProcessorABC):
 		  'basic'       : None,
 		  'boost'       : None,
 		  '2l2b'        : None,
+		  '2l2bsolved'  : None,
 		  '2l2bHbb'     : None,
 		  '2l2bmw'      : None,
 		  '2l2bHbbmw'   : None,
 		  '2l2bmwmt'    : None,
 		  '2l2bHbbmwmt' : None,
+		  '2l2blowmt'   : None,
 		  '2l2bhighmt'  : None,
 		  #'joint		 : None'
 		}
@@ -273,6 +275,9 @@ class ttHbb(processor.ProcessorABC):
 		leading_jet_pt         = get_leading_value(events.GoodJet.pt)
 		leading_jet_eta        = get_leading_value(events.GoodJet.eta, default=-9.)
 		leading_jet_phi        = get_leading_value(events.GoodJet.phi)
+		leading_bjet_pt        = get_leading_value(events.GoodBJet.pt)
+		leading_bjet_eta       = get_leading_value(events.GoodBJet.eta, default=-9.)
+		leading_bjet_phi       = get_leading_value(events.GoodBJet.phi)
 		leading_fatjet_SDmass  = get_leading_value(events.GoodFatJet.msoftdrop)
 		leading_fatjet_pt      = get_leading_value(events.GoodFatJet.pt)
 		leading_fatjet_eta     = get_leading_value(events.GoodFatJet.eta, default=-9.)
@@ -302,7 +307,7 @@ class ttHbb(processor.ProcessorABC):
 		leptons_minus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_minus_pt[mask_events_2l2b], eta=lepton_minus_eta[mask_events_2l2b], phi=lepton_minus_phi[mask_events_2l2b], mass=lepton_minus_mass[mask_events_2l2b])
 		goodbjets			   = JaggedCandidateArray.candidatesfromcounts(events.GoodBJet.counts, pt=events.GoodBJet.pt.flatten(), eta=events.GoodBJet.eta.flatten(), phi=events.GoodBJet.phi.flatten(), mass=events.GoodBJet.mass.flatten())
 		METs_2b			   	   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=MET.pt[mask_events_2l2b], eta=np.zeros_like(MET.pt[mask_events_2l2b]), phi=MET.phi[mask_events_2l2b], mass=np.zeros_like(MET.pt[mask_events_2l2b]))
-		pnu, pnubar, pb, pbbar = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
+		pnu, pnubar, pb, pbbar, mask_events_2l2bsolved = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
 		#efficiency			   = np.array(pnu['x'] > -1000).sum()/len(pnu['x'])
 		#print(efficiency)
 		neutrinos			   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnu['x'][mask_events_2l2b], py=pnu['y'][mask_events_2l2b], pz=pnu['z'][mask_events_2l2b], mass=np.zeros_like(pnu['x'][mask_events_2l2b]))
@@ -317,10 +322,12 @@ class ttHbb(processor.ProcessorABC):
 		topbars				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptopbar['pt'][mask_events_2l2b], eta=ptopbar['eta'][mask_events_2l2b], phi=ptopbar['phi'][mask_events_2l2b], mass=ptopbar['mass'][mask_events_2l2b])
 		tts					   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptt['pt'][mask_events_2l2b], eta=ptt['eta'][mask_events_2l2b], phi=ptt['phi'][mask_events_2l2b], mass=ptt['mass'][mask_events_2l2b])
 
+		deltaRBBbar			   = calc_dr(bs, bbars)
 		deltaRHiggsTop		   = calc_dr(higgs, tops)
 		deltaRHiggsTopbar	   = calc_dr(higgs, topbars)
 		deltaRHiggsTT		   = calc_dr(higgs, tts)
 		deltaRTopTopbar		   = calc_dr(tops, topbars)
+		deltaPhiBBbar		   = calc_dphi(bs, bbars)
 		deltaPhiHiggsTop	   = calc_dphi(higgs, tops)
 		deltaPhiHiggsTopbar	   = calc_dphi(higgs, topbars)
 		deltaPhiHiggsTT		   = calc_dphi(higgs, tts)
@@ -332,6 +339,7 @@ class ttHbb(processor.ProcessorABC):
 		#m_top_bar			   = t_mass(leptons_minus, antineutrinos, bbars, mask_events_2l2b)
 		#m_tt 				   = top_reco(leptons_minus, leptons_plus, neutrinos, antineutrinos, bs, bbars, mask_events_2l2b)
 
+		mask_events_2l2blowmt   = mask_events_2l2b & (ptop['mass'] < 200)
 		mask_events_2l2bhighmt  = mask_events_2l2b & (ptop['mass'] > 200)
 		mask_events_2l2bmw      = mask_events_2l2b & (pwp['mass'] < 200) & (pwm['mass'] < 200)
 		mask_events_2l2bHbbmw   = mask_events_2l2bHbb & (pwp['mass'] < 200) & (pwm['mass'] < 200)
@@ -382,41 +390,17 @@ class ttHbb(processor.ProcessorABC):
 		  'basic'    	: mask_events_basic,
 		  'boost'    	: mask_events_boost,
 		  '2l2b'     	: mask_events_2l2b,
+		  '2l2bsolved'  : mask_events_2l2bsolved,
 		  '2l2bHbb'     : mask_events_2l2bHbb,
 		  '2l2bmw'      : mask_events_2l2bmw,
 		  '2l2bHbbmw'   : mask_events_2l2bHbbmw,
 		  '2l2bmwmt'    : mask_events_2l2bmwmt,
 		  '2l2bHbbmwmt' : mask_events_2l2bHbbmwmt,
+		  '2l2blowmt'   : mask_events_2l2blowmt,
 		  '2l2bhighmt'  : mask_events_2l2bhighmt,
 		  #'joint'    : mask_events_OS
 		}
 
-		############# overlap study
-		"""
-		for m in self._mask_events.copy():
-			if m=='resolved': continue
-			self._mask_events[m+'_orthogonal'] = self._mask_events[m] & (btags_resolved < 3)
-			#self._mask_events[m+'_overlap']    = self._mask_events[m] & self._mask_events['resolved']
-		for mn,m in self._mask_events.items():
-			output["sumw"]['nevts_'+mn] += sum(weights['nominal'][m])
-
-		vars2d = {
-			'ngoodjets' : ngoodjets,
-			'njets'     : njets
-			}
-
-		for mn,m in mask_events.items():
-			if 'overlap' in mn:
-				for vn,v in vars2d.items():
-					hist, binsx, binsy = np.histogram2d(v[m], btags_resolved[m],\
-							bins=(\
-							np.linspace(*self._variables[vn]),\
-							np.linspace(*self._variables['btags_resolved']),\
-							),\
-							weights=weights["nominal"][m]\
-							)
-					ret[f'hist2d_{vn}VSbtags_{mn}'] = Histogram( hist, hist, (*self._variables[vn],*self._variables['btags_resolved']) )
-		"""
 		############# histograms
 		vars_to_plot = {
 		'muons_pt'					: muons.pt,
@@ -442,6 +426,8 @@ class ttHbb(processor.ProcessorABC):
 		'mll'						: mll,
 		'leading_jet_pt'    		: leading_jet_pt,
 		'leading_jet_eta'   		: leading_jet_eta,
+		'leading_bjet_pt'    		: leading_bjet_pt,
+		'leading_bjet_eta'   		: leading_bjet_eta,
 		'leadAK8JetMass'    		: leading_fatjet_SDmass,
 		'leadAK8JetPt'      		: leading_fatjet_pt,
 		'leadAK8JetEta'     		: leading_fatjet_eta,
@@ -469,10 +455,12 @@ class ttHbb(processor.ProcessorABC):
 		'tt_pt'						: ptt['pt'],
 		'top_pt'					: ptop['pt'],
 		'topbar_pt'					: ptopbar['pt'],
+		'deltaRBBbar'				: deltaRBBbar,
 		'deltaRHiggsTop'			: deltaRHiggsTop,
 		'deltaRHiggsTopbar'			: deltaRHiggsTopbar,
 		'deltaRHiggsTT'				: deltaRHiggsTT,
 		'deltaRTopTopbar'			: deltaRTopTopbar,
+		'deltaPhiBBbar'				: deltaPhiBBbar,
 		'deltaPhiHiggsTop'			: deltaPhiHiggsTop,
 		'deltaPhiHiggsTopbar'		: deltaPhiHiggsTopbar,
 		'deltaPhiHiggsTT'			: deltaPhiHiggsTT,
@@ -489,7 +477,7 @@ class ttHbb(processor.ProcessorABC):
 				'm_top' : ptop['mass'],
 			},
 			'm_top_vs_leading_lepton_pt' : {
-				'leading_lepton_pt' : MET.pt,
+				'leading_lepton_pt' : leading_lepton_pt,
 				'm_top'             : ptop['mass'],
 			},
 			'm_top_vs_leadAK8JetHbb' : {
@@ -500,20 +488,59 @@ class ttHbb(processor.ProcessorABC):
 				'btags' : btags,
 				'm_top' : ptop['mass'],
 			},
+			'm_top_vs_leading_bjet_pt' : {
+				'leading_bjet_pt' : leading_bjet_pt,
+				'm_top'			  : ptop['mass'],
+			},
+			'm_top_vs_leading_bjet_eta' : {
+				'leading_bjet_eta' : abs(leading_bjet_eta),
+				'm_top'			   : ptop['mass'],
+			},
+			'm_top_vs_m_w_plus' : {
+				'm_w_plus' 		   : pwp['mass'],
+				'm_top'			   : ptop['mass'],
+			},
+			'm_top_vs_m_w_minus' : {
+				'm_w_minus' 	   : pwm['mass'],
+				'm_top'			   : ptop['mass'],
+			},
+			'm_topbar_vs_m_w_plus' : {
+				'm_w_plus' 		   : pwp['mass'],
+				'm_topbar'		   : ptopbar['mass'],
+			},
+			'm_topbar_vs_m_w_minus' : {
+				'm_w_minus'		   : pwm['mass'],
+				'm_topbar'		   : ptopbar['mass'],
+			},
+			'deltaRBBbar_vs_nleps' : {
+				'nleps'			   : nleps,
+				'deltaRBBbar'	   : deltaRBBbar,
+			},
+			'deltaRBBbar_vs_met' : {
+				'met'			   : MET.pt,
+				'deltaRBBbar'	   : deltaRBBbar,
+			},
+			'deltaRBBbar_vs_leadAK8JetPt' : {
+				'leadAK8JetPt'	   : leading_fatjet_pt,
+				'deltaRBBbar'	   : deltaRBBbar,
+			},
+			'm_w_minus_vs_m_w_plus' : {
+				'm_w_plus' 	   	   : pwp['mass'],
+				'm_w_minus'		   : pwm['mass'],
+			},
+			'm_topbar_vs_m_top' : {
+				'm_top' 	   	   : ptop['mass'],
+				'm_topbar'		   : ptopbar['mass'],
+			},
 		}
 
 		for wn,w in weights.items():
 			if not wn in ['ones', 'nominal']: continue
 			for mask_name, mask in self._mask_events.items():
-				#if not mask_name in ['basic', '2l2b', '2l2bmw', '2l2bmwmt']: continue
 				for var_name, var in vars_to_plot.items():
 					try:
-						#w = weights['nominal'][mask]
-						#values = var[mask]
 						if var_name.split("_")[0] in ["muons", "goodmuons", "electrons", "goodelectrons", "jets", "goodjets"]:
 							continue
-							#values = awkward1.flatten(var[mask])
-							#output[f'hist_{var_name}_{mask_name}'].fill(dataset=dataset, values=values)
 						else:
 							if wn == 'ones':
 								output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=var[mask])
@@ -523,17 +550,17 @@ class ttHbb(processor.ProcessorABC):
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings ({mask_name})')
 				for hist2d_name, vars2d in vars2d_to_plot.items():
-					try:
-						varname_x = list(vars2d.keys())[0]
-						varname_y = list(vars2d.keys())[1]
-						var_x = vars2d[varname_x]
-						var_y = vars2d[varname_y]
-						if wn == 'ones':
-							output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=var_x[mask], y=var_y[mask])
-						else:
-							output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=var_x[mask], y=var_y[mask], weight=w[mask])
-					except KeyError:
-						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variables {hist2d_name} to the histogram settings ({mask_name})')
+					#try:
+					varname_x = list(vars2d.keys())[0]
+					varname_y = list(vars2d.keys())[1]
+					var_x = vars2d[varname_x]
+					var_y = vars2d[varname_y]
+					if wn == 'ones':
+						output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=var_x[mask], y=var_y[mask])
+					else:
+						output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=var_x[mask], y=var_y[mask], weight=w[mask])
+					#except KeyError:
+					#	print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variables {hist2d_name} to the histogram settings ({mask_name})')
 		return output
 
 	def postprocess(self, accumulator):
@@ -566,14 +593,8 @@ class ttHbb(processor.ProcessorABC):
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Runs a simple array-based analysis')
-	#parser.add_argument('--nthreads', action='store', help='Number of CPU threads to use', type=int, default=4, required=False)
-	#parser.add_argument('--files-per-batch', action='store', help='Number of files to process per batch', type=int, default=1, required=False)
-	#parser.add_argument('--cache-location', action='store', help='Path prefix for the cache, must be writable', type=str, default=os.path.join(os.getcwd(), 'cache'))
 	parser.add_argument('--outdir', action='store', help='directory to store outputs', type=str, default=os.getcwd())
 	parser.add_argument('-o', '--output', action='store', help='Output histogram filename (default: %(default)s)', type=str, default=r'hists.coffea')
-	#parser.add_argument('--outtag', action='store', help='outtag added to output file', type=str, default="")
-	#parser.add_argument('--version', action='store', help='tag added to the output directory', type=str, default='')
-	#parser.add_argument('--filelist', action='store', help='List of files to load', type=str, default=None, required=False)
 	parser.add_argument('--sample', action='store', help='sample name', choices=['mc'], type=str, default=None, required=True)
 	parser.add_argument('--year', action='store', choices=['2016', '2017', '2018'], help='Year of data/MC samples', default='2017')
 	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
