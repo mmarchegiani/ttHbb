@@ -114,8 +114,10 @@ class ttHbb(processor.ProcessorABC):
 		output = self.accumulator.identity()
 		dataset = events.metadata["dataset"]
 		nEvents = events.event.size
+		#nEvents = awkward1.size(events.event)
 		sample = dataset
 		is_mc = 'genWeight' in events.columns
+		#is_mc = 'genWeight' in events.fields
 		#print("Processing %d %s events" % (nEvents, dataset))
 
 		muons = events.Muon
@@ -592,21 +594,35 @@ class ttHbb(processor.ProcessorABC):
 		return accumulator
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description='Runs a simple array-based analysis')
-	parser.add_argument('--outdir', action='store', help='directory to store outputs', type=str, default=os.getcwd())
-	parser.add_argument('-o', '--output', action='store', help='Output histogram filename (default: %(default)s)', type=str, default=r'hists.coffea')
-	parser.add_argument('--sample', action='store', help='sample name', choices=['mc'], type=str, default=None, required=True)
-	parser.add_argument('--year', action='store', choices=['2016', '2017', '2018'], help='Year of data/MC samples', default='2017')
+	parser = argparse.ArgumentParser(description='Run analysis on baconbits files using processor coffea files')
+	# Inputs
+	#parser.add_argument( '--wf', '--workflow', dest='workflow', choices=['dilepton'], help='Which processor to run', required=True)
+	parser.add_argument('-o', '--output', default=r'hists.coffea', help='Output histogram filename (default: %(default)s)')
+	parser.add_argument('--samples', '--json', dest='samplejson', help='JSON file containing dataset and file locations (default: %(default)s)', required=True)
+	parser.add_argument('--year', type=str, choices=['2016', '2017', '2018'], default='2017', help='Year of data/MC samples')
+
+	# Scale out
+	parser.add_argument('--executor', choices=['iterative', 'futures', 'parsl/slurm', 'dask/condor', 'dask/slurm'], default='futures', help='The type of executor to use (default: %(default)s)')
+	parser.add_argument('-j', '--workers', type=int, default=12, help='Number of workers (cores/threads) to use for multi-worker executors (e.g. futures or condor) (default: %(default)s)')
+	parser.add_argument('-s', '--scaleout', type=int, default=6, help='Number of nodes to scale out to if using slurm/condor. Total number of concurrent threads is ``workers x scaleout`` (default: %(default)s)')
+	parser.add_argument('--voms', default=None, type=str, help='Path to voms proxy, accessible to worker nodes. By default a copy will be made to $HOME.')
+
+	# Debugging
+	#parser.add_argument('--validate', action='store_true', help='Do not process, just check all files are accessible')
+	parser.add_argument('--skipbadfiles', action='store_true', help='Skip bad files.')
+	parser.add_argument('--only', type=str, default=None, help='Only process specific dataset or file')
+	parser.add_argument('--limit', type=int, default=None, metavar='N', help='Limit to the first N files of each dataset in sample JSON')
+	parser.add_argument('--chunk', type=int, default=500000, metavar='N', help='Number of events per process chunk')
+	parser.add_argument('--max', type=int, default=None, metavar='N', help='Max number of chunks to run in total')
+
 	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
-	parser.add_argument('--machine', action='store', choices=['lxplus', 't3', 'local'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
-	parser.add_argument('--workers', action='store', help='Number of workers (CPUs) to use', type=int, default=10)
-	parser.add_argument('--chunksize', action='store', help='Number of events in a single chunk', type=int, default=30000)
-	parser.add_argument('--maxchunks', action='store', help='Maximum number of chunks', type=int, default=25)
 	parser.add_argument('--test', action='store_true', help='Test without plots', default=False)
+	#parser.add_argument('--machine', action='store', choices=['lxplus', 't3', 'local'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
 	args = parser.parse_args()
 
 	if args.output == parser.get_default('output'):
-		args.output = f'hists_dilepton_{args.sample}{args.year}.coffea'
+		label = args.samplejson.strip('.json')
+		args.output = f'hists_dilepton_{label}_{args.year}.coffea'
 
 	from definitions_dilepton_analysis import parameters, eraDependentParameters, samples_info
 	parameters.update(eraDependentParameters[args.year])
@@ -617,7 +633,7 @@ if __name__ == "__main__":
 			try: parameters[p] = type(parameters[p])(v) #convert the string v to the type of the parameter already in the dictionary
 			except: print(f'invalid parameter specified: {p} {v}')
 
-	if "Single" in args.sample:
+	if "Single" in args.samplejson:
 		is_mc = False
 		lumimask = LumiMask(parameters["lumimask"])
 	else:
@@ -636,44 +652,146 @@ if __name__ == "__main__":
 		ext.finalize()
 		evaluator = ext.make_evaluator()
 
-	# PostProcessed NanoAOD
-	#f1 = open("datasets/RunIIFall17NanoAODv7PostProc/ttHTobb_2017.txt", 'r')
-	#f2 = open("datasets/RunIIFall17NanoAODv7PostProc/TTTo2L2Nu_2017.txt", 'r')
-	# Central NanoAOD
-	if args.sample == 'mc' and args.year == '2017':
-		f1 = open("datasets/RunIIFall17NanoAODv7/ttHTobb_2017.txt", 'r')
-		f2 = open("datasets/RunIIFall17NanoAODv7/TTTo2L2Nu_2017_localfiles.txt", 'r')
-		#f3 = open("datasets/RunIIFall17NanoAODv7/TTToSemiLeptonic_2017.txt", 'r')
-		#samples = { "TTToSemiLeptonic": f3.read().splitlines(), "TTTo2L2Nu": f2.read().splitlines(), "ttHTobb": f1.read().splitlines() }
-		samples = { "TTTo2L2Nu": f2.read().splitlines(), "ttHTobb": f1.read().splitlines() }
-		f1.close()
-		f2.close()
-		#f3.close()
-	if args.machine == 't3':
-		for sample in samples:
-			for (i, file) in enumerate(samples[sample]):
-				samples[sample][i] = file.replace('root://xrootd-cms.infn.it/', '/pnfs/psi.ch/cms/trivcat')
-	if args.machine == 'local':
-		print("Reading local test files...")
-		samples = {
-			"ttHTobb": [
-				"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_24_ttHbb.root",
+	# load dataset
+	with open(args.samplejson) as f:
+		sample_dict = json.load(f)
+	
+	for key in sample_dict.keys():
+		sample_dict[key] = sample_dict[key][:args.limit]
+
+	# For debugging
+	if args.only is not None:
+		if args.only in sample_dict.keys():  # is dataset
+			sample_dict = dict([(args.only, sample_dict[args.only])])
+		if "*" in args.only: # wildcard for datasets
+			_new_dict = {}
+			print("Will only proces the following datasets:")
+			for k, v in sample_dict.items():
+				if k.lstrip("/").startswith(args.only.rstrip("*")):
+					print("    ", k)
+					_new_dict[k] = v
+			sample_dict = _new_dict
+		else:  # is file
+			for key in sample_dict.keys():
+				if args.only in sample_dict[key]:
+					sample_dict = dict([(key, [args.only])])
+
+	processor_instance = ttHbb()
+
+	if args.executor not in ['futures', 'iterative']:
+		# dask/parsl needs to export x509 to read over xrootd
+		if args.voms is not None:
+			_x509_path = args.voms
+		else:
+			_x509_localpath = [l for l in os.popen('voms-proxy-info').read().split("\n") if l.startswith('path')][0].split(":")[-1].strip()
+			_x509_path = os.environ['HOME'] + f'/.{_x509_localpath.split("/")[-1]}'
+			os.system(f'cp {_x509_localpath} {_x509_path}')
+
+		env_extra = [
+			'export XRD_RUNFORKHANDLER=1',
+			f'export X509_USER_PROXY={_x509_path}',
+			f'export X509_CERT_DIR={os.environ["X509_CERT_DIR"]}',
+			'ulimit -u 32768',
+		]
+
+	#########
+	# Execute
+	if args.executor in ['futures', 'iterative']:
+		if args.executor == 'iterative':
+			_exec = processor.iterative_executor
+		else:
+			_exec = processor.futures_executor
+		output = processor.run_uproot_job(sample_dict,
+									treename='Events',
+									processor_instance=processor_instance,
+									executor=_exec,
+									executor_args={
+										'nano' : True,
+										'skipbadfiles':args.skipbadfiles,
+										#'schema': processor.NanoAODSchema, 
+										'workers': args.workers},
+									chunksize=args.chunk, maxchunks=args.max
+									)
+	elif args.executor == 'parsl/slurm':
+		import parsl
+		from parsl.providers import LocalProvider, CondorProvider, SlurmProvider
+		from parsl.channels import LocalChannel
+		from parsl.config import Config
+		from parsl.executors import HighThroughputExecutor
+		from parsl.launchers import SrunLauncher
+		from parsl.addresses import address_by_hostname
+
+		slurm_htex = Config(
+			executors=[
+				HighThroughputExecutor(
+					label="coffea_parsl_slurm",
+					address=address_by_hostname(),
+					prefetch_capacity=0,
+					provider=SlurmProvider(
+						channel=LocalChannel(script_dir='logs_parsl'),
+						launcher=SrunLauncher(),
+						max_blocks=(args.scaleout)+10,
+						init_blocks=args.scaleout, 
+						partition='wn',
+						worker_init="\n".join(env_extra) + "\nexport PYTHONPATH=$PYTHONPATH:$PWD", 
+						walltime='00:120:00'
+					),
+				)
 			],
-			"TTTo2L2Nu": [
-				"/afs/cern.ch/work/m/mmarcheg/Coffea/test/nano_postprocessed_45_tt_semileptonic.root"
-			]
-		}
+			retries=20,
+		)
+		dfk = parsl.load(slurm_htex)
 
-	MyProcessor = ttHbb()
-	#MyProcessor = ttHbb(sample=args.sample)
+		output = processor.run_uproot_job(sample_dict,
+									treename='Events',
+									processor_instance=processor_instance,
+									executor=processor.parsl_executor,
+									executor_args={
+										'skipbadfiles':True,
+										'schema': processor.NanoAODSchema, 
+										'config': None,
+									},
+									chunksize=args.chunk, maxchunks=args.max
+									)
+		
+	elif 'dask' in args.executor:
+		from dask_jobqueue import SLURMCluster, HTCondorCluster
+		from distributed import Client
+		from dask.distributed import performance_report
 
-	print("Running uproot job...")
-	result = processor.run_uproot_job(
-		samples,
-		"Events",
-		MyProcessor,
-		processor.futures_executor,
-		{"nano": True, "workers": args.workers},
-		chunksize=args.chunksize,
-		maxchunks=args.maxchunks,
-	)
+		if 'slurm' in args.executor:
+			cluster = SLURMCluster(
+				queue='all',
+				cores=args.workers,
+				processes=args.workers,
+				memory="200 GB",
+				retries=10,
+				walltime='00:30:00',
+				env_extra=env_extra,
+			)
+		elif 'condor' in args.executor:
+			cluster = HTCondorCluster(
+				 cores=args.workers, 
+				 memory='2GB', 
+				 disk='2GB', 
+				 env_extra=env_extra,
+			)
+		cluster.scale(jobs=args.scaleout)
+
+		client = Client(cluster)
+		with performance_report(filename="dask-report.html"):
+			output = processor.run_uproot_job(sample_dict,
+										treename='Events',
+										processor_instance=processor_instance,
+										executor=processor.dask_executor,
+										executor_args={
+											'client': client,
+											'skipbadfiles':args.skipbadfiles,
+											'schema': processor.NanoAODSchema, 
+										},
+										chunksize=args.chunk, maxchunks=args.max
+							)
+
+	save(output, args.output)
+  
+	print(f"Saving output to {args.output}")
