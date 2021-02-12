@@ -24,7 +24,7 @@ def validate(file):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Run analysis on baconbits files using processor coffea files')
 	# Inputs
-	parser.add_argument( '--wf', '--workflow', dest='workflow', choices=['ttcom', 'fattag'], help='Which processor to run', required=True)
+	parser.add_argument( '--wf', '--workflow', dest='workflow', choices=['dilepton'], help='Which processor to run', required=True)
 	parser.add_argument('-o', '--output', default=r'hists.coffea', help='Output histogram filename (default: %(default)s)')
 	parser.add_argument('--samples', '--json', dest='samplejson', default='dummy_samples.json', help='JSON file containing dataset and file locations (default: %(default)s)')
 	parser.add_argument('--year', type=int, choices=['2016', '2017', '2018'], default='2017', help='Year of data/MC samples')
@@ -33,7 +33,7 @@ if __name__ == '__main__':
 	parser.add_argument('--executor', choices=['iterative', 'futures', 'parsl/slurm', 'dask/condor', 'dask/slurm'], default='futures', help='The type of executor to use (default: %(default)s)')
 	parser.add_argument('-j', '--workers', type=int, default=12, help='Number of workers (cores/threads) to use for multi-worker executors (e.g. futures or condor) (default: %(default)s)')
 	parser.add_argument('-s', '--scaleout', type=int, default=6, help='Number of nodes to scale out to if using slurm/condor. Total number of concurrent threads is ``workers x scaleout`` (default: %(default)s)')
-	parser.add_argument('--voms', default=None, type=str, help='Path to voms proxy, accsessible to worker nodes. By default a copy will be made to $HOME.')
+	parser.add_argument('--voms', default=None, type=str, help='Path to voms proxy, accessible to worker nodes. By default a copy will be made to $HOME.')
 
 	# Debugging
 	parser.add_argument('--validate', action='store_true', help='Do not process, just check all files are accessible')
@@ -98,6 +98,7 @@ if __name__ == '__main__':
 	
 	# load workflow
 	if args.workflow == "dilepton":
+		import workflows.dilepton
 		from workflows.dilepton import NanoProcessor
 		processor_instance = NanoProcessor()
 	else:
