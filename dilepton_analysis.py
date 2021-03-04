@@ -38,8 +38,12 @@ class ttHbb(processor.ProcessorABC):
 		  #'resolved'	 : None,
 		  'basic'       : None,
 		  'boost'       : None,
+		  '2l1b'        : None,
+		  '2l1bHbb'     : None,
 		  '2l2b'        : None,
 		  '2l2bsolved'  : None,
+		  '2l2bnotsolved': None,
+		  '2l2blowdr'  	: None,
 		  '2l2bHbb'     : None,
 		  '2l2bmw'      : None,
 		  '2l2bHbbmw'   : None,
@@ -56,18 +60,21 @@ class ttHbb(processor.ProcessorABC):
 
 		self._accumulator = processor.dict_accumulator({
 			"sumw": processor.defaultdict_accumulator(float),
+			"nevts": processor.defaultdict_accumulator(int),
+			"nevts_solved": processor.defaultdict_accumulator(int),
 		})
 
 		for wn in self._weights_list:
 			for mask_name in self._mask_events.keys():
+				#self._accumulator.add(processor.dict_accumulator({f'sumw_SR_{mask_name}_weights_{wn}' : processor.defaultdict_accumulator(float),})
 				for var_name in self._varnames:
-					self._accumulator.add(processor.dict_accumulator({f'hist_{var_name}_{mask_name}_weights_{wn}' : hist.Hist("a.u.",
+					self._accumulator.add(processor.dict_accumulator({f'hist_{var_name}_{mask_name}_weights_{wn}' : hist.Hist("$N_{events}$",
 																  	  hist.Cat("dataset", "Dataset"),
 																	  hist.Bin("values", self._variables[var_name]['xlabel'], np.linspace( *self._variables[var_name]['binning'] ) ) ) } ))
 				for hist2d_name in self._hist2dnames:
 					varname_x = list(self._variables2d[hist2d_name].keys())[0]
 					varname_y = list(self._variables2d[hist2d_name].keys())[1]
-					self._accumulator.add(processor.dict_accumulator({f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}' : hist.Hist("a.u.",
+					self._accumulator.add(processor.dict_accumulator({f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}' : hist.Hist("$N_{events}$",
 																  	  hist.Cat("dataset", "Dataset"),
 																	  hist.Bin("x", self._variables2d[hist2d_name][varname_x]['xlabel'], np.linspace( *self._variables2d[hist2d_name][varname_x]['binning'] ) ),
 																	  hist.Bin("y", self._variables2d[hist2d_name][varname_y]['ylabel'], np.linspace( *self._variables2d[hist2d_name][varname_y]['binning'] ) )
@@ -113,12 +120,13 @@ class ttHbb(processor.ProcessorABC):
 	def process(self, events, parameters=parameters, samples_info=samples_info):
 		output = self.accumulator.identity()
 		dataset = events.metadata["dataset"]
-		nEvents = events.event.size
-		#nEvents = awkward1.size(events.event)
-		sample = dataset
+		#nEvents = events.event.size
+		nEvents = awkward1.count(events.event)
+		output['nevts'][dataset] += nEvents
 		is_mc = 'genWeight' in events.columns
 		#is_mc = 'genWeight' in events.fields
-		#print("Processing %d %s events" % (nEvents, dataset))
+		if is_mc:
+			output['sumw'][dataset] += sum(events.genWeight)
 
 		muons = events.Muon
 		electrons = events.Electron
@@ -287,6 +295,9 @@ class ttHbb(processor.ProcessorABC):
 		leading_fatjet_mass    = get_leading_value(events.GoodFatJet.mass)
 		leading_fatjet_rho     = awkward1.from_iter( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
 		leading_fatjet_Hbb     = get_leading_value(events.GoodFatJet[parameters['bbtagging_algorithm']])
+		leading_fatjet_tau1    = get_leading_value(events.GoodFatJet.tau1)
+		leading_fatjet_tau2    = get_leading_value(events.GoodFatJet.tau2)
+		leading_fatjet_tau21   = awkward1.from_iter( leading_fatjet_tau2/leading_fatjet_tau1 )
 		lepton_plus_pt         = get_charged_var("pt", events.GoodElectron, events.GoodMuon, +1, SFOS | not_SFOS)
 		lepton_plus_eta        = get_charged_var("eta", events.GoodElectron, events.GoodMuon, +1, SFOS | not_SFOS, default=-9.)
 		lepton_plus_phi        = get_charged_var("phi", events.GoodElectron, events.GoodMuon, +1, SFOS | not_SFOS)
@@ -304,14 +315,19 @@ class ttHbb(processor.ProcessorABC):
 		mask_events_boost	   = mask_events_basic & (leading_fatjet_Hbb > parameters['bbtagging_WP'])
 		mask_events_2l2b	   = mask_events_basic & (btags >= 2)
 		mask_events_2l2bHbb    = mask_events_boost & (btags >= 2)
+		mask_events_2l1b	   = mask_events_basic & (btags >= 1)
+		mask_events_2l1bHbb    = mask_events_boost & (btags >= 1)
 
 		leptons_plus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_plus_pt[mask_events_2l2b], eta=lepton_plus_eta[mask_events_2l2b], phi=lepton_plus_phi[mask_events_2l2b], mass=lepton_plus_mass[mask_events_2l2b])
 		leptons_minus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_minus_pt[mask_events_2l2b], eta=lepton_minus_eta[mask_events_2l2b], phi=lepton_minus_phi[mask_events_2l2b], mass=lepton_minus_mass[mask_events_2l2b])
 		goodbjets			   = JaggedCandidateArray.candidatesfromcounts(events.GoodBJet.counts, pt=events.GoodBJet.pt.flatten(), eta=events.GoodBJet.eta.flatten(), phi=events.GoodBJet.phi.flatten(), mass=events.GoodBJet.mass.flatten())
 		METs_2b			   	   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=MET.pt[mask_events_2l2b], eta=np.zeros_like(MET.pt[mask_events_2l2b]), phi=MET.phi[mask_events_2l2b], mass=np.zeros_like(MET.pt[mask_events_2l2b]))
 		pnu, pnubar, pb, pbbar, mask_events_2l2bsolved = pnuCalculator(leptons_minus, leptons_plus, goodbjets, METs_2b)
-		#efficiency			   = np.array(pnu['x'] > -1000).sum()/len(pnu['x'])
-		#print(efficiency)
+		mask_events_2l2bnotsolved = np.invert(mask_events_2l2bsolved) & mask_events_2l2b
+		
+		nEvents_solved = awkward1.count(events.event[mask_events_2l2bsolved])
+		output['nevts_solved'][dataset] += nEvents_solved
+
 		neutrinos			   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnu['x'][mask_events_2l2b], py=pnu['y'][mask_events_2l2b], pz=pnu['z'][mask_events_2l2b], mass=np.zeros_like(pnu['x'][mask_events_2l2b]))
 		antineutrinos		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnubar['x'][mask_events_2l2b], py=pnubar['y'][mask_events_2l2b], pz=pnubar['z'][mask_events_2l2b], mass=np.zeros_like(pnubar['x'][mask_events_2l2b]))
 		bs					   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pb['x'][mask_events_2l2b], py=pb['y'][mask_events_2l2b], pz=pb['z'][mask_events_2l2b], mass=pb['mass'][mask_events_2l2b])
@@ -335,12 +351,7 @@ class ttHbb(processor.ProcessorABC):
 		deltaPhiHiggsTT		   = calc_dphi(higgs, tts)
 		deltaPhiTopTopbar	   = calc_dphi(tops, topbars)
 
-		#m_w_plus			   = w_mass(leptons_plus, neutrinos, mask_events_2l2b)
-		#m_w_minus			   = w_mass(leptons_minus, antineutrinos, mask_events_2l2b)
-		#m_top				   = t_mass(leptons_plus, neutrinos, bs, mask_events_2l2b)
-		#m_top_bar			   = t_mass(leptons_minus, antineutrinos, bbars, mask_events_2l2b)
-		#m_tt 				   = top_reco(leptons_minus, leptons_plus, neutrinos, antineutrinos, bs, bbars, mask_events_2l2b)
-
+		mask_events_2l2blowdr	= mask_events_2l2b & (deltaRBBbar < 0.2)
 		mask_events_2l2blowmt   = mask_events_2l2b & (ptop['mass'] < 200)
 		mask_events_2l2bhighmt  = mask_events_2l2b & (ptop['mass'] > 200)
 		mask_events_2l2bmw      = mask_events_2l2b & (pwp['mass'] < 200) & (pwm['mass'] < 200)
@@ -366,7 +377,8 @@ class ttHbb(processor.ProcessorABC):
 		weights["nominal"] = np.ones(nEvents, dtype=np.float32)
 
 		if is_mc:
-			weights["nominal"] = weights["nominal"] * genWeight * parameters["lumi"] * samples_info[sample]["XS"] / samples_info[sample]["ngen_weight"][args.year]
+			weights["nominal"] = weights["nominal"] * genWeight * parameters["lumi"] * samples_info[dataset]["XS"] / output["sumw"][dataset]
+			#weights["nominal"] = weights["nominal"] * genWeight * parameters["lumi"] * samples_info[dataset]["XS"] / samples_info[dataset]["ngen_weight"][args.year]
 
 			# pu corrections
 			#if puWeight is not None:
@@ -391,8 +403,12 @@ class ttHbb(processor.ProcessorABC):
 		  #'resolved' : mask_events_res,
 		  'basic'    	: mask_events_basic,
 		  'boost'    	: mask_events_boost,
+		  '2l1b'     	: mask_events_2l1b,
+		  '2l1bHbb'    	: mask_events_2l1bHbb,
 		  '2l2b'     	: mask_events_2l2b,
 		  '2l2bsolved'  : mask_events_2l2bsolved,
+		  '2l2bnotsolved': mask_events_2l2bnotsolved,
+		  '2l2blowdr'  	: mask_events_2l2blowdr,
 		  '2l2bHbb'     : mask_events_2l2bHbb,
 		  '2l2bmw'      : mask_events_2l2bmw,
 		  '2l2bHbbmw'   : mask_events_2l2bHbbmw,
@@ -435,6 +451,7 @@ class ttHbb(processor.ProcessorABC):
 		'leadAK8JetEta'     		: leading_fatjet_eta,
 		'leadAK8JetRho'     		: leading_fatjet_rho,
 		'leadAK8JetHbb'				: leading_fatjet_Hbb,
+		'leadAK8JetTau21'			: leading_fatjet_tau21,
 		'lepton_plus_pt'            : lepton_plus_pt,
 		'lepton_plus_eta'           : lepton_plus_eta,
 		'lepton_minus_pt'           : lepton_minus_pt,
@@ -569,27 +586,20 @@ class ttHbb(processor.ProcessorABC):
 
 		#print("Neutrino momenta efficiency = ", self._nsolved/self._n2l2b)
 
-		if not args.test:
-			hist_dir = os.getcwd() + "/histograms/"
-			print("Saving histograms in " + hist_dir)
-			if not os.path.exists(hist_dir):
-				os.makedirs(hist_dir)
-			save(accumulator, hist_dir + args.output)
-
-			"""
-			for wn in self._weights_list:
-				if not wn in ['ones', 'nominal']: continue
-				for mask_name in self._mask_events.keys():
-					#if not mask_name in ['basic', '2l2b', '2l2bmw', '2l2bmwmt']: continue
-					for var_name in self._varnames:
-						if var_name.split("_")[0] in ["muons", "goodmuons", "electrons", "goodelectrons", "jets", "goodjets"]:
-							continue
-						fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,6))
-						hist.plot1d(accumulator[f'hist_{var_name}_{mask_name}_weights_{wn}'], overlay='dataset', fill_opts=self._fill_opts, error_opts=self._error_opts, density=True)
-						plt.xlim(*self._variables[var_name]['xlim'])
-						fig.savefig(plot_dir + f'hist_{var_name}_{mask_name}_weights_{wn}' + ".png", dpi=300, format="png")
-						plt.close(ax.figure)
-			"""
+		"""
+		for wn in self._weights_list:
+			if not wn in ['ones', 'nominal']: continue
+			for mask_name in self._mask_events.keys():
+				#if not mask_name in ['basic', '2l2b', '2l2bmw', '2l2bmwmt']: continue
+				for var_name in self._varnames:
+					if var_name.split("_")[0] in ["muons", "goodmuons", "electrons", "goodelectrons", "jets", "goodjets"]:
+						continue
+					fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,6))
+					hist.plot1d(accumulator[f'hist_{var_name}_{mask_name}_weights_{wn}'], overlay='dataset', fill_opts=self._fill_opts, error_opts=self._error_opts, density=True)
+					plt.xlim(*self._variables[var_name]['xlim'])
+					fig.savefig(plot_dir + f'hist_{var_name}_{mask_name}_weights_{wn}' + ".png", dpi=300, format="png")
+					plt.close(ax.figure)
+		"""
 
 		return accumulator
 
@@ -616,7 +626,6 @@ if __name__ == "__main__":
 	parser.add_argument('--max', type=int, default=None, metavar='N', help='Max number of chunks to run in total')
 
 	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
-	parser.add_argument('--test', action='store_true', help='Test without plots', default=False)
 	#parser.add_argument('--machine', action='store', choices=['lxplus', 't3', 'local'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
 	args = parser.parse_args()
 
@@ -690,13 +699,16 @@ if __name__ == "__main__":
 		env_extra = [
 			'export XRD_RUNFORKHANDLER=1',
 			f'export X509_USER_PROXY={_x509_path}',
-			f'export X509_CERT_DIR={os.environ["X509_CERT_DIR"]}',
+			#f'export X509_CERT_DIR={os.environ["X509_CERT_DIR"]}',
+			f'export X509_VOMS_DIR={os.environ["X509_VOMS_DIR"]}',
 			'ulimit -u 32768',
 		]
 
 	#########
 	# Execute
 	if args.executor in ['futures', 'iterative']:
+		import uproot4 as uproot
+		uproot.open.defaults["xrootd_handler"] = uproot.source.xrootd.MultithreadedXRootDSource
 		if args.executor == 'iterative':
 			_exec = processor.iterative_executor
 		else:
@@ -708,7 +720,7 @@ if __name__ == "__main__":
 									executor_args={
 										'nano' : True,
 										'skipbadfiles':args.skipbadfiles,
-										#'schema': processor.NanoAODSchema, 
+										'schema': processor.NanoAODSchema, 
 										'workers': args.workers},
 									chunksize=args.chunk, maxchunks=args.max
 									)
@@ -734,8 +746,10 @@ if __name__ == "__main__":
 						init_blocks=args.scaleout, 
 						partition='wn',
 						worker_init="\n".join(env_extra) + "\nexport PYTHONPATH=$PYTHONPATH:$PWD", 
-						walltime='00:120:00'
+						walltime='02:00:00'
 					),
+					#cores_per_worker=1,
+					#mem_per_worker=2, #GB
 				)
 			],
 			retries=20,
@@ -787,11 +801,14 @@ if __name__ == "__main__":
 										executor_args={
 											'client': client,
 											'skipbadfiles':args.skipbadfiles,
-											'schema': processor.NanoAODSchema, 
+											#'schema': processor.NanoAODSchema, 
 										},
 										chunksize=args.chunk, maxchunks=args.max
 							)
 
-	save(output, args.output)
-  
-	print(f"Saving output to {args.output}")
+	hist_dir = os.getcwd() + "/histograms/"
+	if not os.path.exists(hist_dir):
+		os.makedirs(hist_dir)
+	save(output, hist_dir + args.output)
+
+	print(f"Saving output to {hist_dir + args.output}")

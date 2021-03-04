@@ -322,7 +322,7 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 	pbbarjets = {'x' : [], 'y' : [], 'z' : [], 'mass' : []}
 
 	nEvents = len(pairs)
-	mask_events_withsol = np.ones(nEvents, dtype=np.bool)
+	mask_events_withsol = np.zeros(nEvents, dtype=np.bool)
 
 	for ievt in range(nEvents):
 		pnu_x_list = []
@@ -462,7 +462,6 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				m_w_plus_reco = None
 				if len(pnu_xs) == 0:
 					if ((reverse == True) & (len(pnu_x_list) == 0) & (i == pairs.counts[ievt]-1)):
-						mask_events_withsol[i] = False
 						pnu_x_list = [-9999.9]
 						pnu_y_list = [-9999.9]
 						pnu_z_list = [-9999.9]
@@ -480,6 +479,7 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 						m_w_plus_reco_list = [-9999.9]
 					continue
 				else:
+					mask_events_withsol[ievt] = True					
 					c0 = c00
 					c1 = c11
 					c2 = c22
