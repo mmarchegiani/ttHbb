@@ -66,6 +66,27 @@ eraDependentParameters = {
         #"lumimask": "/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/ReReco/Final/Cert_271036-284044_13TeV_ReReco_07Aug2017_Collisions16_JSON.txt",
         #"lumimask": "/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/Final/Cert_271036-284044_13TeV_PromptReco_Collisions16_JSON.txt",
         'lumimask': 'data/Cert_271036-284044_13TeV_PromptReco_Collisions16_JSON.txt',
+        "triggers" : {
+            "ee" : [
+                "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Ele27_WPTight_Gsf",
+            ],
+            "emu" : [
+                "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+                "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL",
+                "HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Ele27_WPTight_Gsf",
+                "HLT_IsoMu24",
+                "HLT_IsoTkMu24",
+            ],
+            "mumu" : [
+                "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL",
+                "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
+                "HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL",
+                "HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_DZ",
+            ],
+        },
         "pu_corrections_file" : "data/PileupData_GoldenJSON_Full2016.root",
         "btag_SF_btagDeepFlavB" : 'data/DeepJet_2016LegacySF_V1_TuneCP5.csv',
         "corrections" : [
@@ -91,6 +112,28 @@ eraDependentParameters = {
         "lumi":  41529.0,
         #"lumimask": "/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Final/Cert_294927-306462_13TeV_PromptReco_Collisions17_JSON.txt",
         "lumimask": "data/Cert_294927-306462_13TeV_PromptReco_Collisions17_JSON.txt",
+        "triggers" : {
+            "ee" : [
+                "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+                "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Ele32_WPTight_Gsf",
+            ],
+            "emu" : [
+                "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+                "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Ele32_WPTight_Gsf",
+                "HLT_IsoMu24_eta2p1",
+                "HLT_IsoMu27",
+            ],
+            "mumu" : [
+                "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
+                "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+                "HLT_IsoMu24_eta2p1",
+                "HLT_IsoMu27",
+            ],
+        },
         "pu_corrections_file" : "data/pileup_Cert_294927-306462_13TeV_PromptReco_Collisions17_withVar.root",
         #"btag_SF_btagDeepFlavB" : "./data/sfs_deepjet_2017_19-11-11.btag.csv",
         "btag_SF_btagDeepFlavB" : 'data/DeepFlavour_2017_94XSF_V4_B_F.csv',
@@ -117,6 +160,26 @@ eraDependentParameters = {
         "lumi":  58830.0,
         "lumimask": "data/Cert_314472-325175_13TeV_PromptReco_Collisions18_JSON.txt",
         #"lumimask": "/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PromptReco/Cert_314472-325175_13TeV_PromptReco_Collisions18_JSON.txt",
+        "triggers" : {
+            "ee" : [
+                "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+                "HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Ele32_WPTight_Gsf",
+            ],
+            "emu" : [
+                "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+                "HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+                "HLT_Ele32_WPTight_Gsf",
+                "HLT_IsoMu24",
+            ],
+            "mumu" : [
+                "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass8",
+                "HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+                "HLT_IsoMu24",
+            ],
+        },
         "pu_corrections_file" : "data/PileupHistogram-goldenJSON-13tev-2018-100bins_withVar.root",
         "btag_SF_btagDeepFlavB" : 'data/DeepJet_2018_102XSF_V2.csv',
         "corrections" : [
