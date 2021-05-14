@@ -4,7 +4,7 @@ import argparse
 import os
 import sys
 import json
-#import h5py
+import h5py
 from cycler import cycler
 #from pdb import set_trace
 
@@ -18,8 +18,8 @@ from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 from coffea.util import save
 
-from lib_analysis_v7 import lepton_selection, jet_nohiggs_selection, load_puhist_target, compute_lepton_weights, calc_dr, calc_dphi, pnuCalculator, obj_reco
-from lib_analysis_v7 import jet_selection_v7, get_dilepton_v7, get_diboson_v7, get_charged_leptons_v7
+from lib_analysis_v7 import lepton_selection, jet_nohiggs_selection, load_puhist_target, compute_lepton_weights
+from lib_analysis_v7 import jet_selection_v7, get_dilepton_v7, get_diboson_v7, get_charged_leptons_v7, pnuCalculator_v7
 from definitions_dilepton_analysis import parameters, histogram_settings, samples_info
 
 class ttHbb(processor.ProcessorABC):
@@ -77,24 +77,36 @@ class ttHbb(processor.ProcessorABC):
 		'btags_resolved'    		: None,
 		'nfatjets'          		: None,
 		'charge_sum'				: None,
-		'met'               		: None,
+		'met_pt'               		: None,
+		'met_phi'              		: None,
 		'mll'						: None,
 		'leading_jet_pt'    		: None,
 		'leading_jet_eta'   		: None,
+		'leading_jet_phi'   		: None,
+		'leading_jet_mass'   		: None,
 		'leading_bjet_pt'    		: None,
 		'leading_bjet_eta'   		: None,
+		'leading_bjet_phi'   		: None,
+		'leading_bjet_mass'   		: None,
 		'leadAK8JetMass'    		: None,
 		'leadAK8JetPt'      		: None,
 		'leadAK8JetEta'     		: None,
+		'leadAK8JetPhi'     		: None,
 		'leadAK8JetRho'     		: None,
 		'leadAK8JetHbb'				: None,
 		'leadAK8JetTau21'			: None,
 		'lepton_plus_pt'            : None,
 		'lepton_plus_eta'           : None,
+		'lepton_plus_phi'           : None,
+		'lepton_plus_mass'          : None,
 		'lepton_minus_pt'           : None,
 		'lepton_minus_eta'          : None,
+		'lepton_minus_phi'          : None,
+		'lepton_minus_mass'         : None,
 		'leading_lepton_pt'         : None,
 		'leading_lepton_eta'        : None,
+		'leading_lepton_phi'        : None,
+		'leading_lepton_mass'       : None,
 		'ptll'                      : None,
 		'mt_ww'                     : None,
 		'pnu_x'						: None,
@@ -121,6 +133,7 @@ class ttHbb(processor.ProcessorABC):
 		'deltaPhiHiggsTopbar'		: None,
 		'deltaPhiHiggsTT'			: None,
 		'deltaPhiTopTopbar'			: None,
+		'signal'					: None,
 		}
 		#self._vars_to_plot = processor.dict_accumulator({
 		#	'leading_lepton_pt'         : None,
@@ -130,8 +143,11 @@ class ttHbb(processor.ProcessorABC):
 			"sumw": processor.defaultdict_accumulator(float),
 			"nevts": processor.defaultdict_accumulator(int),
 			"nevts_solved": processor.defaultdict_accumulator(int),
-			"leading_lepton_pt": processor.column_accumulator(np.array([])),
+			#"leading_lepton_pt": processor.column_accumulator(ak.Array([])),
 		})
+
+		for var in self._vars_to_plot.keys():
+			self._accumulator.add(processor.dict_accumulator({var : processor.column_accumulator(np.array([]))}))
 
 		for wn in self._weights_list:
 			for mask_name in self._mask_events.keys():
@@ -246,7 +262,8 @@ class ttHbb(processor.ProcessorABC):
 
 		leading_fatjets = ak.pad_none(fatjets[good_fatjets], 1)[:,0]
 
-		good_jets_nohiggs = good_jets & (jets[good_jets].delta_r(leading_fatjets) > 1.2)
+		#good_jets_nohiggs = good_jets & (jets[good_jets].delta_r(leading_fatjets) > 1.2)
+		good_jets_nohiggs = good_jets & ak.fill_none(jets.delta_r(leading_fatjets) > 1.2, True)
 		bjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) > parameters["btagging_WP"])
 		nonbjets = good_jets_nohiggs & (getattr(jets, parameters["btagging_algorithm"]) < parameters["btagging_WP"])
 
@@ -311,21 +328,23 @@ class ttHbb(processor.ProcessorABC):
 		mask_events_OS    = (mask_events_res | mask_events_basic)
 
 		# calculate basic variables
-		leading_jet_pt         = selev.GoodJet[:,0].pt
-		leading_jet_eta        = selev.GoodJet[:,0].eta
-		leading_jet_phi        = selev.GoodJet[:,0].phi
-		leading_bjet_pt        = selev.GoodBJet[:,0].pt
-		leading_bjet_eta       = selev.GoodBJet[:,0].eta
-		leading_bjet_phi       = selev.GoodBJet[:,0].phi
-		leading_fatjet_SDmass  = selev.GoodFatJet[:,0].msoftdrop
-		leading_fatjet_pt      = selev.GoodFatJet[:,0].pt
-		leading_fatjet_eta     = selev.GoodFatJet[:,0].eta
-		leading_fatjet_phi     = selev.GoodFatJet[:,0].phi
-		leading_fatjet_mass    = selev.GoodFatJet[:,0].mass
+		leading_jet_pt         = ak.pad_none(selev.GoodJet, 1)[:,0].pt
+		leading_jet_eta        = ak.pad_none(selev.GoodJet, 1)[:,0].eta
+		leading_jet_phi        = ak.pad_none(selev.GoodJet, 1)[:,0].phi
+		leading_jet_mass       = ak.pad_none(selev.GoodJet, 1)[:,0].mass
+		leading_bjet_pt        = ak.pad_none(selev.GoodBJet, 1)[:,0].pt
+		leading_bjet_eta       = ak.pad_none(selev.GoodBJet, 1)[:,0].eta
+		leading_bjet_phi       = ak.pad_none(selev.GoodBJet, 1)[:,0].phi
+		leading_bjet_mass      = ak.pad_none(selev.GoodBJet, 1)[:,0].mass
+		leading_fatjet_SDmass  = ak.pad_none(selev.GoodFatJet, 1)[:,0].msoftdrop
+		leading_fatjet_pt      = ak.pad_none(selev.GoodFatJet, 1)[:,0].pt
+		leading_fatjet_eta     = ak.pad_none(selev.GoodFatJet, 1)[:,0].eta
+		leading_fatjet_phi     = ak.pad_none(selev.GoodFatJet, 1)[:,0].phi
+		leading_fatjet_mass    = ak.pad_none(selev.GoodFatJet, 1)[:,0].mass
 		leading_fatjet_rho     = ak.Array( np.log(leading_fatjet_SDmass**2 / leading_fatjet_pt**2) )
-		leading_fatjet_Hbb     = selev.GoodFatJet[:,0][parameters['bbtagging_algorithm']]
-		leading_fatjet_tau1    = selev.GoodFatJet[:,0].tau1
-		leading_fatjet_tau2    = selev.GoodFatJet[:,0].tau2
+		leading_fatjet_Hbb     = ak.pad_none(selev.GoodFatJet, 1)[:,0][parameters['bbtagging_algorithm']]
+		leading_fatjet_tau1    = ak.pad_none(selev.GoodFatJet, 1)[:,0].tau1
+		leading_fatjet_tau2    = ak.pad_none(selev.GoodFatJet, 1)[:,0].tau2
 		leading_fatjet_tau21   = ak.Array( leading_fatjet_tau2/leading_fatjet_tau1 )
 		lepton_plus 		   = get_charged_leptons_v7(selev.GoodElectron, selev.GoodMuon, +1, SFOS | not_SFOS)
 		lepton_minus 		   = get_charged_leptons_v7(selev.GoodElectron, selev.GoodMuon, -1, SFOS | not_SFOS)
@@ -342,49 +361,49 @@ class ttHbb(processor.ProcessorABC):
 		mask_events_2l1b	   = mask_events_basic & (selev.btags >= 1)
 		mask_events_2l1bHbb    = mask_events_boost & (selev.btags >= 1)
 
-		#leptons_plus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_plus_pt[mask_events_2l2b], eta=lepton_plus_eta[mask_events_2l2b], phi=lepton_plus_phi[mask_events_2l2b], mass=lepton_plus_mass[mask_events_2l2b])
-		#leptons_minus		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=lepton_minus_pt[mask_events_2l2b], eta=lepton_minus_eta[mask_events_2l2b], phi=lepton_minus_phi[mask_events_2l2b], mass=lepton_minus_mass[mask_events_2l2b])
-		#goodbjets			   = JaggedCandidateArray.candidatesfromcounts(selev.GoodBJet.counts, pt=selev.GoodBJet.pt.flatten(), eta=selev.GoodBJet.eta.flatten(), phi=selev.GoodBJet.phi.flatten(), mass=selev.GoodBJet.mass.flatten())
-		#METs_2b			   	   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=MET.pt[mask_events_2l2b], eta=np.zeros_like(MET.pt[mask_events_2l2b]), phi=MET.phi[mask_events_2l2b], mass=np.zeros_like(MET.pt[mask_events_2l2b]))
-		selev_2l2b = selev[mask_events_2l2b]
-		lepton_plus_2l2b 	   = get_charged_leptons_v7(selev_2l2b.GoodElectron, selev_2l2b.GoodMuon, +1, SFOS | not_SFOS)
-		lepton_minus_2l2b	   = get_charged_leptons_v7(selev_2l2b.GoodElectron, selev_2l2b.GoodMuon, -1, SFOS | not_SFOS)
-		pnu, pnubar, pb, pbbar, mask_events_2l2bsolved = pnuCalculator(lepton_minus_2l2b, lepton_plus_2l2b, selev_2l2b.GoodBJet, selev_2l2b.MET)
+		lepton_plus_2l2b 	   = get_charged_leptons_v7(selev.GoodElectron, selev.GoodMuon, +1, mask_events_2l2b)
+		lepton_minus_2l2b	   = get_charged_leptons_v7(selev.GoodElectron, selev.GoodMuon, -1, mask_events_2l2b)
+		pnu, pnubar, pb, pbbar, mask_events_2l2bsolved = pnuCalculator_v7(lepton_minus_2l2b, lepton_plus_2l2b, selev.GoodBJet, selev.MET)
 		mask_events_2l2bnotsolved = np.invert(mask_events_2l2bsolved) & mask_events_2l2b
-		
+
 		nEvents_solved = ak.count(events.event[mask_events_2l2bsolved])
 		output['nevts_solved'][dataset] += nEvents_solved
 
-		neutrinos			   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnu['x'][mask_events_2l2b], py=pnu['y'][mask_events_2l2b], pz=pnu['z'][mask_events_2l2b], mass=np.zeros_like(pnu['x'][mask_events_2l2b]))
-		antineutrinos		   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pnubar['x'][mask_events_2l2b], py=pnubar['y'][mask_events_2l2b], pz=pnubar['z'][mask_events_2l2b], mass=np.zeros_like(pnubar['x'][mask_events_2l2b]))
-		bs					   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pb['x'][mask_events_2l2b], py=pb['y'][mask_events_2l2b], pz=pb['z'][mask_events_2l2b], mass=pb['mass'][mask_events_2l2b])
-		bbars				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), px=pbbar['x'][mask_events_2l2b], py=pbbar['y'][mask_events_2l2b], pz=pbbar['z'][mask_events_2l2b], mass=pbbar['mass'][mask_events_2l2b])
-		pwm, pwp, ptop, ptopbar, ptt = obj_reco(leptons_minus, leptons_plus, neutrinos, antineutrinos, bs, bbars, mask_events_2l2b)
+		pwm = lepton_minus_2l2b + pnubar
+		pwp = lepton_plus_2l2b + pnu
+		ptop = pwp + pb
+		ptopbar = pwm + pbbar
+		ptt = ptop + ptopbar
 		
-		mask_events_withGoodFatJet = selev.GoodFatJet.counts > 0
-		higgs 				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withGoodFatJet, dtype=int), pt=leading_fatjet_pt[mask_events_withGoodFatJet], eta=leading_fatjet_eta[mask_events_withGoodFatJet], phi=leading_fatjet_phi[mask_events_withGoodFatJet], mass=leading_fatjet_mass[mask_events_withGoodFatJet])
-		tops				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptop['pt'][mask_events_2l2b], eta=ptop['eta'][mask_events_2l2b], phi=ptop['phi'][mask_events_2l2b], mass=ptop['mass'][mask_events_2l2b])
-		topbars				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptopbar['pt'][mask_events_2l2b], eta=ptopbar['eta'][mask_events_2l2b], phi=ptopbar['phi'][mask_events_2l2b], mass=ptopbar['mass'][mask_events_2l2b])
-		tts					   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptt['pt'][mask_events_2l2b], eta=ptt['eta'][mask_events_2l2b], phi=ptt['phi'][mask_events_2l2b], mass=ptt['mass'][mask_events_2l2b])
+		#mask_events_withGoodFatJet = selev.GoodFatJet.counts > 0
+		#higgs 				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_withGoodFatJet, dtype=int), pt=leading_fatjet_pt[mask_events_withGoodFatJet], eta=leading_fatjet_eta[mask_events_withGoodFatJet], phi=leading_fatjet_phi[mask_events_withGoodFatJet], mass=leading_fatjet_mass[mask_events_withGoodFatJet])
+		#tops				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptop['pt'][mask_events_2l2b], eta=ptop['eta'][mask_events_2l2b], phi=ptop['phi'][mask_events_2l2b], mass=ptop['mass'][mask_events_2l2b])
+		#topbars				   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptopbar['pt'][mask_events_2l2b], eta=ptopbar['eta'][mask_events_2l2b], phi=ptopbar['phi'][mask_events_2l2b], mass=ptopbar['mass'][mask_events_2l2b])
+		#tts					   = JaggedCandidateArray.candidatesfromcounts(np.array(mask_events_2l2b, dtype=int), pt=ptt['pt'][mask_events_2l2b], eta=ptt['eta'][mask_events_2l2b], phi=ptt['phi'][mask_events_2l2b], mass=ptt['mass'][mask_events_2l2b])
 
-		deltaRBBbar			   = calc_dr(bs, bbars)
-		deltaRHiggsTop		   = calc_dr(higgs, tops)
-		deltaRHiggsTopbar	   = calc_dr(higgs, topbars)
-		deltaRHiggsTT		   = calc_dr(higgs, tts)
-		deltaRTopTopbar		   = calc_dr(tops, topbars)
-		deltaPhiBBbar		   = calc_dphi(bs, bbars)
-		deltaPhiHiggsTop	   = calc_dphi(higgs, tops)
-		deltaPhiHiggsTopbar	   = calc_dphi(higgs, topbars)
-		deltaPhiHiggsTT		   = calc_dphi(higgs, tts)
-		deltaPhiTopTopbar	   = calc_dphi(tops, topbars)
+		deltaRBBbar			   = pb.delta_r(pbbar)
+		deltaRHiggsTop		   = ptop.delta_r(ak.pad_none(selev.GoodFatJet, 1)[:,0])
+		deltaRHiggsTopbar	   = ptopbar.delta_r(ak.pad_none(selev.GoodFatJet, 1)[:,0])
+		deltaRHiggsTT		   = ptt.delta_r(ak.pad_none(selev.GoodFatJet, 1)[:,0])
+		deltaRTopTopbar		   = ptop.delta_r(ptopbar)
+		deltaPhiBBbar		   = pb.delta_phi(pbbar)
+		deltaPhiHiggsTop	   = ptop.delta_phi(ak.pad_none(selev.GoodFatJet, 1)[:,0])
+		deltaPhiHiggsTopbar	   = ptopbar.delta_phi(ak.pad_none(selev.GoodFatJet, 1)[:,0])
+		deltaPhiHiggsTT		   = ptt.delta_phi(ak.pad_none(selev.GoodFatJet, 1)[:,0])
+		deltaPhiTopTopbar	   = ptop.delta_phi(ptopbar)
+
+		if dataset == 'ttHTobb':
+			signal_label = ak.ones_like(lepton_plus.pt)
+		else:
+			signal_label = ak.zeros_like(lepton_plus.pt)
 
 		mask_events_2l2blowdr	= mask_events_2l2b & (deltaRBBbar < 0.2)
-		mask_events_2l2blowmt   = mask_events_2l2b & (ptop['mass'] < 200)
-		mask_events_2l2bhighmt  = mask_events_2l2b & (ptop['mass'] > 200)
-		mask_events_2l2bmw      = mask_events_2l2b & (pwp['mass'] < 200) & (pwm['mass'] < 200)
-		mask_events_2l2bHbbmw   = mask_events_2l2bHbb & (pwp['mass'] < 200) & (pwm['mass'] < 200)
-		mask_events_2l2bmwmt    = mask_events_2l2bmw & (ptop['mass'] < 200) & (ptopbar['mass'] < 200)
-		mask_events_2l2bHbbmwmt = mask_events_2l2bHbbmw & (ptop['mass'] < 200) & (ptopbar['mass'] < 200)
+		mask_events_2l2blowmt   = mask_events_2l2b & (ptop.mass < 200)
+		mask_events_2l2bhighmt  = mask_events_2l2b & (ptop.mass > 200)
+		mask_events_2l2bmw      = mask_events_2l2b & (pwp.mass < 200) & (pwm.mass < 200)
+		mask_events_2l2bHbbmw   = mask_events_2l2bHbb & (pwp.mass < 200) & (pwm.mass < 200)
+		mask_events_2l2bmwmt    = mask_events_2l2bmw & (ptop.mass < 200) & (ptopbar.mass < 200)
+		mask_events_2l2bHbbmwmt = mask_events_2l2bHbbmw & (ptop.mass < 200) & (ptopbar.mass < 200)
 
 		"""
 		#good_events           = events[mask_events]
@@ -460,47 +479,59 @@ class ttHbb(processor.ProcessorABC):
 		'jets_eta'					: jets.eta,
 		'goodjets_pt'				: events.GoodJet.pt,
 		'goodjets_eta'				: events.GoodJet.eta,
-		'nleps'             		: nleps,
-		'njets'             		: njets,
-		'ngoodjets'         		: ngoodjets,
-		'btags'             		: btags,
-		'btags_resolved'    		: btags_resolved,
-		'nfatjets'          		: nfatjets,
+		'nleps'             		: selev.nleps,
+		'njets'             		: selev.njets,
+		'ngoodjets'         		: selev.ngoodjets,
+		'btags'             		: selev.btags,
+		'btags_resolved'    		: selev.btags_resolved,
+		'nfatjets'          		: selev.nfatjets,
 		'charge_sum'				: ll.charge,
-		'met'               		: MET.pt,
-		'mll'						: mll,
+		'met_pt'               		: MET.pt,
+		'met_phi'              		: MET.phi,
+		'mll'						: ll.mass,
 		'leading_jet_pt'    		: leading_jet_pt,
 		'leading_jet_eta'   		: leading_jet_eta,
+		'leading_jet_phi'   		: leading_jet_phi,
+		'leading_jet_mass'   		: leading_jet_mass,
 		'leading_bjet_pt'    		: leading_bjet_pt,
 		'leading_bjet_eta'   		: leading_bjet_eta,
+		'leading_bjet_phi'   		: leading_bjet_phi,
+		'leading_bjet_mass'   		: leading_bjet_mass,
 		'leadAK8JetMass'    		: leading_fatjet_SDmass,
 		'leadAK8JetPt'      		: leading_fatjet_pt,
 		'leadAK8JetEta'     		: leading_fatjet_eta,
+		'leadAK8JetPhi'     		: leading_fatjet_phi,
 		'leadAK8JetRho'     		: leading_fatjet_rho,
 		'leadAK8JetHbb'				: leading_fatjet_Hbb,
 		'leadAK8JetTau21'			: leading_fatjet_tau21,
-		'lepton_plus_pt'            : lepton_plus_pt,
-		'lepton_plus_eta'           : lepton_plus_eta,
-		'lepton_minus_pt'           : lepton_minus_pt,
-		'lepton_minus_eta'          : lepton_minus_eta,
+		'lepton_plus_pt'            : lepton_plus.pt,
+		'lepton_plus_eta'           : lepton_plus.eta,
+		'lepton_plus_phi'           : lepton_plus.phi,
+		'lepton_plus_mass'          : lepton_plus.mass,
+		'lepton_minus_pt'           : lepton_minus.pt,
+		'lepton_minus_eta'          : lepton_minus.eta,
+		'lepton_minus_phi'          : lepton_minus.phi,
+		'lepton_minus_mass'         : lepton_minus.mass,
 		'leading_lepton_pt'         : leading_lepton_pt,
 		'leading_lepton_eta'        : leading_lepton_eta,
-		'ptll'                      : ptll,
+		'leading_lepton_phi'        : leading_lepton_phi,
+		'leading_lepton_mass'       : leading_lepton_mass,
+		'ptll'                      : ll.pt,
 		'mt_ww'                     : ww_t.mass,
-		'pnu_x'						: pnu['x'],
-		'pnu_y'						: pnu['y'],
-		'pnu_z'						: pnu['z'],
-		'pnubar_x'					: pnubar['x'],
-		'pnubar_y'					: pnubar['y'],
-		'pnubar_z'					: pnubar['z'],
-		'm_w_plus'					: pwp['mass'],
-		'm_w_minus'					: pwm['mass'],
-		'm_top'						: ptop['mass'],
-		'm_topbar'					: ptopbar['mass'],
-		'm_tt'						: ptt['mass'],
-		'tt_pt'						: ptt['pt'],
-		'top_pt'					: ptop['pt'],
-		'topbar_pt'					: ptopbar['pt'],
+		'pnu_x'						: pnu.x,
+		'pnu_y'						: pnu.y,
+		'pnu_z'						: pnu.z,
+		'pnubar_x'					: pnubar.x,
+		'pnubar_y'					: pnubar.y,
+		'pnubar_z'					: pnubar.z,
+		'm_w_plus'					: pwp.mass,
+		'm_w_minus'					: pwm.mass,
+		'm_top'						: ptop.mass,
+		'm_topbar'					: ptopbar.mass,
+		'm_tt'						: ptt.mass,
+		'tt_pt'						: ptt.pt,
+		'top_pt'					: ptop.pt,
+		'topbar_pt'					: ptopbar.pt,
 		'deltaRBBbar'				: deltaRBBbar,
 		'deltaRHiggsTop'			: deltaRHiggsTop,
 		'deltaRHiggsTopbar'			: deltaRHiggsTopbar,
@@ -511,54 +542,61 @@ class ttHbb(processor.ProcessorABC):
 		'deltaPhiHiggsTopbar'		: deltaPhiHiggsTopbar,
 		'deltaPhiHiggsTT'			: deltaPhiHiggsTT,
 		'deltaPhiTopTopbar'			: deltaPhiTopTopbar,
+		'signal'					: signal_label,
 		}
 		self._vars_to_plot = vars_to_plot.copy()
-		output['leading_lepton_pt'] = output['leading_lepton_pt'] + processor.column_accumulator(ak.to_numpy(leading_lepton_pt))
+		for var in self._vars_to_plot.keys():
+			if var.split("_")[0] in ["muons", "goodmuons", "electrons", "goodelectrons", "jets", "goodjets"]:
+				continue
+			#print(self._vars_to_plot[var])
+			mask = self._mask_events['basic']
+			output[var] = output[var] + processor.column_accumulator(ak.to_numpy(self._vars_to_plot[var][mask]))
+		#output['leading_lepton_pt'] = output['leading_lepton_pt'] + processor.column_accumulator(ak.to_numpy(leading_lepton_pt))
 
 		vars2d_to_plot = {
 			'm_top_vs_pnu_x' : {
-				'pnu_x' : abs(pnu['x']),
-				'm_top' : ptop['mass'],
+				'pnu_x' : abs(pnu.x),
+				'm_top' : ptop.mass,
 			},
 			'm_top_vs_met' : {
 				'met'   : MET.pt,
-				'm_top' : ptop['mass'],
+				'm_top' : ptop.mass,
 			},
 			'm_top_vs_leading_lepton_pt' : {
 				'leading_lepton_pt' : leading_lepton_pt,
-				'm_top'             : ptop['mass'],
+				'm_top'             : ptop.mass,
 			},
 			'm_top_vs_leadAK8JetHbb' : {
 				'leadAK8JetHbb' : leading_fatjet_Hbb,
-				'm_top'         : ptop['mass'],
+				'm_top'         : ptop.mass,
 			},
 			'm_top_vs_btags' : {
 				'btags' : btags,
-				'm_top' : ptop['mass'],
+				'm_top' : ptop.mass,
 			},
-			'm_top_vs_leading_bjet_pt' : {
-				'leading_bjet_pt' : leading_bjet_pt,
-				'm_top'			  : ptop['mass'],
-			},
-			'm_top_vs_leading_bjet_eta' : {
-				'leading_bjet_eta' : abs(leading_bjet_eta),
-				'm_top'			   : ptop['mass'],
-			},
+			#'m_top_vs_leading_bjet_pt' : {
+			#	'leading_bjet_pt' : leading_bjet_pt,
+			#	'm_top'			  : ptop.mass,
+			#},
+			#'m_top_vs_leading_bjet_eta' : {
+			#	'leading_bjet_eta' : abs(leading_bjet_eta),
+			#	'm_top'			   : ptop.mass,
+			#},
 			'm_top_vs_m_w_plus' : {
-				'm_w_plus' 		   : pwp['mass'],
-				'm_top'			   : ptop['mass'],
+				'm_w_plus' 		   : pwp.mass,
+				'm_top'			   : ptop.mass,
 			},
 			'm_top_vs_m_w_minus' : {
-				'm_w_minus' 	   : pwm['mass'],
-				'm_top'			   : ptop['mass'],
+				'm_w_minus' 	   : pwm.mass,
+				'm_top'			   : ptop.mass,
 			},
 			'm_topbar_vs_m_w_plus' : {
-				'm_w_plus' 		   : pwp['mass'],
-				'm_topbar'		   : ptopbar['mass'],
+				'm_w_plus' 		   : pwp.mass,
+				'm_topbar'		   : ptopbar.mass,
 			},
 			'm_topbar_vs_m_w_minus' : {
-				'm_w_minus'		   : pwm['mass'],
-				'm_topbar'		   : ptopbar['mass'],
+				'm_w_minus'		   : pwm.mass,
+				'm_topbar'		   : ptopbar.mass,
 			},
 			'deltaRBBbar_vs_nleps' : {
 				'nleps'			   : nleps,
@@ -573,14 +611,17 @@ class ttHbb(processor.ProcessorABC):
 				'deltaRBBbar'	   : deltaRBBbar,
 			},
 			'm_w_minus_vs_m_w_plus' : {
-				'm_w_plus' 	   	   : pwp['mass'],
-				'm_w_minus'		   : pwm['mass'],
+				'm_w_plus' 	   	   : pwp.mass,
+				'm_w_minus'		   : pwm.mass,
 			},
 			'm_topbar_vs_m_top' : {
-				'm_top' 	   	   : ptop['mass'],
-				'm_topbar'		   : ptopbar['mass'],
+				'm_top' 	   	   : ptop.mass,
+				'm_topbar'		   : ptopbar.mass,
 			},
 		}
+
+		def flatten(ar): # flatten awkward into a 1d array to hist
+			return ak.flatten(ak.fill_none(ar, -999.9), axis=None)
 
 		for wn,w in weights.items():
 			if not wn in ['ones', 'nominal']: continue
@@ -591,10 +632,9 @@ class ttHbb(processor.ProcessorABC):
 							continue
 						else:
 							if wn == 'ones':
-								output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=var[mask])
+								output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=flatten(var[mask]))
 							else:
-								output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=var[mask], weight=w[mask])
-
+								output[f'hist_{var_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, values=flatten(var[mask]), weight=flatten(w[mask]))
 					except KeyError:
 						print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variable {var_name} to the histogram settings ({mask_name})')
 				for hist2d_name, vars2d in vars2d_to_plot.items():
@@ -604,9 +644,9 @@ class ttHbb(processor.ProcessorABC):
 					var_x = vars2d[varname_x]
 					var_y = vars2d[varname_y]
 					if wn == 'ones':
-						output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=var_x[mask], y=var_y[mask])
+						output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=flatten(var_x[mask]), y=flatten(var_y[mask]))
 					else:
-						output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=var_x[mask], y=var_y[mask], weight=w[mask])
+						output[f'hist2d_{hist2d_name}_{mask_name}_weights_{wn}'].fill(dataset=dataset, x=flatten(var_x[mask]), y=flatten(var_y[mask]), weight=flatten(w[mask]))
 					#except KeyError:
 					#	print(f'!!!!!!!!!!!!!!!!!!!!!!!! Please add variables {hist2d_name} to the histogram settings ({mask_name})')
 		return output
@@ -620,22 +660,30 @@ class ttHbb(processor.ProcessorABC):
 			os.makedirs(hdf_dir)
 		# Minimal input set, only leading jet, lepton and fatjet observables
 		# No top-related variables used
-		input_vars = ['ngoodjets', 'btags', 'nfatjets', 'met',
-					  'leading_jet_pt', 'leading_jet_eta',
-					  'leadAK8JetPt', 'leadAK8JetEta', 'leadAK8JetHbb', 'leadAK8JetTau21',
-					  'leading_lepton_pt', 'leading_lepton_eta']
-		mask = self._mask_events['basic']
-		vars_to_DNN = {key : value[mask] for key, value in self._vars_to_plot.items() if key in input_vars}
+		input_vars = ['ngoodjets', 'btags', 'nfatjets', 'met_pt', 'met_phi',
+					  'leading_jet_pt', 'leading_jet_eta', 'leading_jet_phi', 'leading_jet_mass',
+					  'leadAK8JetPt', 'leadAK8JetEta', 'leadAK8JetPhi', 'leadAK8JetHbb', 'leadAK8JetTau21',
+					  'lepton_plus_pt', 'lepton_plus_eta', 'lepton_plus_phi', 'lepton_plus_mass',
+					  'lepton_minus_pt', 'lepton_minus_eta', 'lepton_minus_phi', 'lepton_minus_mass']
+		for key, value in accumulator.items():
+			if key in input_vars:
+				print(key, value.value)
+		vars_to_DNN = {key : ak.Array(value.value) for key, value in accumulator.items() if key in input_vars}
 		print("vars_to_DNN = ", vars_to_DNN)
-		inputs = ak.Array(vars_to_DNN)
+		inputs = ak.zip(vars_to_DNN)
 		print("inputs = ", inputs)
-		filepath = hdf_dir + args.output.replace(".coffea", "_" + dataset + ".h5")
+		#filepath = hdf_dir + args.output.replace(".coffea", "_" + dataset + ".h5")
+		filepath = hdf_dir + args.output.replace(".coffea", ".h5")
 		print(f"Saving DNN inputs to {filepath}")
+		df = ak.to_pandas(inputs)
+		df.to_hdf(filepath, key='df', mode='w')
+		"""
 		h5f = h5py.File(filepath, 'w')
 		for k in inputs.fields:
 			print("Create", k)
 			h5f.create_dataset(k, data=inputs[k])
 		h5f.close()
+		"""
 
 		return accumulator
 

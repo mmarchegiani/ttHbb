@@ -4,9 +4,12 @@ import awkward as ak
 import numpy as np
 import math
 import uproot
+from vector import MomentumObject4D
 
-#from awkward.array.jagged import JaggedArray
 from coffea import hist
+from coffea.nanoevents.methods import nanoaod
+
+ak.behavior.update(nanoaod.behavior)
 
 def lepton_selection(leps, cuts, year):
 
@@ -94,7 +97,11 @@ def get_charged_leptons_v7(electrons, muons, charge, mask):
 			"eta": None,
 			"phi": None,
 			"mass": None,
+			"energy": None,
 			"charge": None,
+			"x": None,
+			"y": None,
+			"z": None,
 	}
 
 	nelectrons = ak.num(electrons)
@@ -108,55 +115,22 @@ def get_charged_leptons_v7(electrons, muons, charge, mask):
 			default = ak.from_iter(len(electrons)*[[-9.]])
 		else:
 			default = ak.from_iter(len(electrons)*[[-999.9]])
-		fields[var] = ak.where( mask_ee, electrons[var][electrons.charge == charge], default )
-		fields[var] = ak.where( mask_mumu, muons[var][muons.charge == charge], fields[var] )
-		fields[var] = ak.where( mask_emu & ak.any(electrons.charge == charge, axis=1), electrons[var][electrons.charge == charge], fields[var] )
-		fields[var] = ak.where( mask_emu & ak.any(muons.charge == charge, axis=1), muons[var][muons.charge == charge], fields[var] )
-		fields[var] = ak.flatten(fields[var])
+		if not var in ["energy", "x", "y", "z"]:
+			fields[var] = ak.where( mask_ee, electrons[var][electrons.charge == charge], default )
+			fields[var] = ak.where( mask_mumu, muons[var][muons.charge == charge], fields[var] )
+			fields[var] = ak.where( mask_emu & ak.any(electrons.charge == charge, axis=1), electrons[var][electrons.charge == charge], fields[var] )
+			fields[var] = ak.where( mask_emu & ak.any(muons.charge == charge, axis=1), muons[var][muons.charge == charge], fields[var] )
+			fields[var] = ak.flatten(fields[var])
+		else:
+			fields[var] = ak.where( mask_ee, getattr(electrons, var)[electrons.charge == charge], default )
+			fields[var] = ak.where( mask_mumu, getattr(muons, var)[muons.charge == charge], fields[var] )
+			fields[var] = ak.where( mask_emu & ak.any(electrons.charge == charge, axis=1), getattr(electrons, var)[electrons.charge == charge], fields[var] )
+			fields[var] = ak.where( mask_emu & ak.any(muons.charge == charge, axis=1), getattr(muons, var)[muons.charge == charge], fields[var] )
+			fields[var] = ak.flatten(fields[var])
 
 	charged_leptons = ak.zip(fields, with_name="PtEtaPhiMCandidate")
 
 	return charged_leptons
-
-"""
-def get_leading_value(var1, var2=None, default=-999.9):
-
-	default = ak.from_iter(len(var1)*[default])
-	firsts1 = ak.firsts(var1)
-	if type(var2) is type(None):
-		#return ak.where(ak.is_none(firsts1), default, firsts1)
-		return ak.from_iter(ak.where(ak.is_none(firsts1), default, firsts1))
-	else:
-		firsts2 = ak.firsts(var2)
-		leading = ak.where(ak.is_none(firsts1), firsts2, firsts1)
-		#return ak.where(ak.is_none(leading), default, leading)
-		return ak.from_iter(ak.where(ak.is_none(leading), default, leading))
-"""
-
-def calc_dr2(pairs):
-
-	deta = pairs.i0.eta - pairs.i1.eta
-	dphi = (pairs.i0.phi - pairs.i1.phi + np.pi) % (2*np.pi) - np.pi
-
-	return deta**2 + dphi**2
-
-def calc_dr(objects1, objects2):
-
-	pairs = objects1.cross(objects2)
-
-	return get_leading_value(ak.from_iter(np.sqrt(calc_dr2(pairs))))
-
-def calc_dphi(objects1, objects2):
-
-	pairs = objects1.cross(objects2)
-
-	dphi = abs( (pairs.i0.phi - pairs.i1.phi + np.pi) % (2*np.pi) - np.pi )
-
-	return get_leading_value(ak.from_iter(dphi))
-
-def pass_dr(pairs, dr):
-
-	return calc_dr2(pairs) > dr**2
 
 def jet_selection_v7(jets, leps, mask_leps, cuts):
 
@@ -166,8 +140,7 @@ def jet_selection_v7(jets, leps, mask_leps, cuts):
 	good_jets = (jets.pt > cuts["pt"]) & (np.abs(jets.eta) < cuts["eta"]) & (jets.jetId >= cuts["jetId"])
 	for i in range(nlep_max):
 		jets_pass_dr = (jets.delta_r(ak.pad_none(sleps, nlep_max)[:,i]) > cuts["dr"])
-		#print("good_jets", good_jets)
-		#print("jets_pass_dr", jets_pass_dr)
+		jets_pass_dr = ak.fill_none(jets_pass_dr, True)
 		good_jets = good_jets & jets_pass_dr
 
 	if cuts["type"] == "jet":
@@ -327,22 +300,22 @@ def hadronic_W(jets):
 
 	return hadW, n_hadW
 
-def pnuCalculator(leptons, leptons_bar, bjets, METs):
+def pnuCalculator_v7(leptons, leptons_bar, bjets, METs):
 
 	# As we have no information regarding the charge of the jet, in principle we should iterate
 	# over all the possible (b, b_bar) pairs of bjet pairs. In order to assign a bjet to b or b_bar
 	# I could use the information of leptons, e.g. DeltaR(l, b) or m_lb
 
-	pairs = bjets.choose(2)
+	pairs = ak.combinations(bjets, 2)
 
 	M_W = 80.4
 	M_t = 173.1
 	M_b = 4.2
 
-	pnu    = {'x' : [], 'y' : [], 'z' : []}
-	pnubar = {'x' : [], 'y' : [], 'z' : []}
-	pbjets = {'x' : [], 'y' : [], 'z' : [], 'mass' : []}
-	pbbarjets = {'x' : [], 'y' : [], 'z' : [], 'mass' : []}
+	pnu    = {'x' : [], 'y' : [], 'z' : [], 'pt' : [], 'eta' : [], 'phi' : [], 'mass' : [], 'charge' : []}
+	pnubar = {'x' : [], 'y' : [], 'z' : [], 'pt' : [], 'eta' : [], 'phi' : [], 'mass' : [], 'charge' : []}
+	pbjets = {'x' : [], 'y' : [], 'z' : [], 'pt' : [], 'eta' : [], 'phi' : [], 'mass' : [], 'charge' : []}
+	pbbarjets = {'x' : [], 'y' : [], 'z' : [], 'pt' : [], 'eta' : [], 'phi' : [], 'mass' : [], 'charge' : []}
 
 	nEvents = len(pairs)
 	mask_events_withsol = np.zeros(nEvents, dtype=np.bool)
@@ -370,39 +343,30 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 		MET   = None
 
 		for reverse in [False, True]:
-			if leptons.counts[ievt] == 0:
+			#print("leptons", leptons)
+			#print("ak.num(leptons)", ak.num(leptons))
+			#if ak.num(leptons)[ievt] == 0:
+			if leptons[ievt].pt < 0:
 				if reverse == False:
-					pnu['x'].append(-9999.9)
-					pnu['y'].append(-9999.9)
-					pnu['z'].append(-9999.9)
-					pnubar['x'].append(-9999.9)
-					pnubar['y'].append(-9999.9)
-					pnubar['z'].append(-9999.9)
-					pbjets['x'].append(-9999.9)
-					pbjets['y'].append(-9999.9)
-					pbjets['z'].append(-9999.9)
-					pbjets['mass'].append(-9999.9)
-					pbbarjets['x'].append(-9999.9)
-					pbbarjets['y'].append(-9999.9)
-					pbbarjets['z'].append(-9999.9)
-					pbbarjets['mass'].append(-9999.9)
-					#b_jets.append([])
-					#b_bar_jets.append([])
+					for key in pnu.keys():
+						pnu[key].append(-9999.9)
+					for key in pnubar.keys():
+						pnubar[key].append(-9999.9)
+					for key in pbjets.keys():
+						pbjets[key].append(-9999.9)
+					for key in pbbarjets.keys():
+						pbbarjets[key].append(-9999.9)
 				continue
-			for i in range(pairs.counts[ievt]):
-				l     = leptons.p4[ievt,0]
-				l_bar = leptons_bar.p4[ievt,0]
-				MET   = METs.p4[ievt,0]
+			for i in range(ak.num(pairs)[ievt]):
+				l     = leptons[ievt]
+				l_bar = leptons_bar[ievt]
+				MET   = METs[ievt]
 				if not reverse:
-					b     = pairs.i0.p4[ievt,i]
-					b_bar = pairs.i1.p4[ievt,i]
-					b_obj = pairs.i0[ievt,i]
-					b_bar_obj = pairs.i1[ievt,i]
+					b     = pairs['0'][ievt,i]
+					b_bar = pairs['1'][ievt,i]
 				else:
-					b     = pairs.i1.p4[ievt,i]
-					b_bar = pairs.i0.p4[ievt,i]
-					b_obj = pairs.i1[ievt,i]
-					b_bar_obj = pairs.i0[ievt,i]
+					b     = pairs['1'][ievt,i]
+					b_bar = pairs['0'][ievt,i]
 
 				a1 = ( (b.energy + l_bar.energy)*(M_W**2 - l_bar.mass**2)
 					   - l_bar.energy*(M_t**2 - M_b**2 - l_bar.mass**2)
@@ -484,7 +448,7 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				pnu_z = None
 				m_w_plus_reco = None
 				if len(pnu_xs) == 0:
-					if ((reverse == True) & (len(pnu_x_list) == 0) & (i == pairs.counts[ievt]-1)):
+					if ((reverse == True) & (len(pnu_x_list) == 0) & (i == ak.num(pairs)[ievt]-1)):
 						pnu_x_list = [-9999.9]
 						pnu_y_list = [-9999.9]
 						pnu_z_list = [-9999.9]
@@ -515,8 +479,8 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 					for pnu_x_sol in pnu_xs:
 						pnu_z_sol	  = - (a1 + a2*pnu_x_sol + a3*pnu_y)/a4
 						pnu_zs.append(pnu_z_sol)
-						neutrino	  = TLorentzVector(pnu_x_sol, pnu_y, pnu_z_sol, np.sqrt(pnu_x_sol**2 + pnu_y**2 + pnu_z_sol**2))
-						lepton_plus	  = TLorentzVector(l_bar.x, l_bar.y, l_bar.z, np.sqrt(l_bar.x**2 + l_bar.y**2 + l_bar.z**2 + l_bar.mass**2))
+						neutrino	  = MomentumObject4D.from_xyzt(pnu_x_sol, pnu_y, pnu_z_sol, np.sqrt(pnu_x_sol**2 + pnu_y**2 + pnu_z_sol**2))
+						lepton_plus	  = MomentumObject4D.from_xyzt(l_bar.x, l_bar.y, l_bar.z, np.sqrt(l_bar.x**2 + l_bar.y**2 + l_bar.z**2 + l_bar.mass**2))
 						m_w = (neutrino + lepton_plus).mass
 						masses.append(m_w)
 
@@ -544,25 +508,47 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 				pbbarjets_z_list.append(b_bar.z)
 				pbbarjets_mass_list.append(b_bar.mass)
 				m_w_plus_reco_list.append(m_w_plus_reco)
-				b_list.append(b_obj)
-				b_bar_list.append(b_bar_obj)
-		# Naive choice: the first (b, b_bar) configuration is chosen
+				b_list.append(b)
+				b_bar_list.append(b_bar)
+		# The solution that gives the best m_w_plus mass reconstruction is chosen
 		if len(pnu_x_list) != 0:
 			j_min = np.argmin(np.abs(np.array(m_w_plus_reco_list) - M_W))
 			pnu['x'].append(pnu_x_list[j_min])
 			pnu['y'].append(pnu_y_list[j_min])
 			pnu['z'].append(pnu_z_list[j_min])
+			p4 = MomentumObject4D.from_xyzt(pnu_x_list[j_min], pnu_y_list[j_min], pnu_z_list[j_min], np.sqrt(pnu_x_list[j_min]**2 + pnu_y_list[j_min]**2 + pnu_z_list[j_min]**2))
+			pnu['pt'].append(p4.pt)
+			pnu['eta'].append(p4.eta)
+			pnu['phi'].append(p4.phi)
+			pnu['mass'].append(p4.mass)
+			pnu['charge'].append(0)
 			pnubar['x'].append(pnubar_x_list[j_min])
 			pnubar['y'].append(pnubar_y_list[j_min])
 			pnubar['z'].append(pnubar_z_list[j_min])
+			p4 = MomentumObject4D.from_xyzt(pnubar_x_list[j_min], pnubar_y_list[j_min], pnubar_z_list[j_min], np.sqrt(pnubar_x_list[j_min]**2 + pnubar_y_list[j_min]**2 + pnubar_z_list[j_min]**2))
+			pnubar['pt'].append(p4.pt)
+			pnubar['eta'].append(p4.eta)
+			pnubar['phi'].append(p4.phi)
+			pnubar['mass'].append(p4.mass)
+			pnubar['charge'].append(0)
 			pbjets['x'].append(pbjets_x_list[j_min])
 			pbjets['y'].append(pbjets_y_list[j_min])
 			pbjets['z'].append(pbjets_z_list[j_min])
 			pbjets['mass'].append(pbjets_mass_list[j_min])
+			p4 = MomentumObject4D.from_xyzt(pbjets_x_list[j_min], pbjets_y_list[j_min], pbjets_z_list[j_min], np.sqrt(pbjets_mass_list[j_min]**2 + pbjets_x_list[j_min]**2 + pbjets_y_list[j_min]**2 + pbjets_z_list[j_min]**2))
+			pbjets['pt'].append(p4.pt)
+			pbjets['eta'].append(p4.eta)
+			pbjets['phi'].append(p4.phi)
+			pbjets['charge'].append(-1./3.)
 			pbbarjets['x'].append(pbbarjets_x_list[j_min])
 			pbbarjets['y'].append(pbbarjets_y_list[j_min])
 			pbbarjets['z'].append(pbbarjets_z_list[j_min])
 			pbbarjets['mass'].append(pbbarjets_mass_list[j_min])
+			p4 = MomentumObject4D.from_xyzt(pbbarjets_x_list[j_min], pbbarjets_y_list[j_min], pbbarjets_z_list[j_min], np.sqrt(pbbarjets_mass_list[j_min]**2 + pbbarjets_x_list[j_min]**2 + pbbarjets_y_list[j_min]**2 + pbbarjets_z_list[j_min]**2))
+			pbbarjets['pt'].append(p4.pt)
+			pbbarjets['eta'].append(p4.eta)
+			pbbarjets['phi'].append(p4.phi)
+			pbbarjets['charge'].append(+1./3.)
 			#if len(b_list) == 2:
 			#	b_jets.append([b_list[j_min]])
 			#	b_bar_jets.append([b_bar_list[j_min]])
@@ -574,94 +560,16 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 			#	b_bar_jets.append([])
 
 	# Here we have to cleverly organise the output as the number of sets of solutions is equal to N_b(N_b - 1)
-	# Then I have to choose a criterion in order to choose the correct (b, b_bar) pair
+	# Then we have to choose a criterion in order to choose the correct (b, b_bar) pair
 	for item in pnu.keys():
 		pnu[item] = np.array(pnu[item])
 		pnubar[item] = np.array(pnubar[item])
 	for item in pbjets.keys():
 		pbjets[item] = np.array(pbjets[item])
 		pbbarjets[item] = np.array(pbbarjets[item])
+	pnu = ak.zip(pnu, with_name="PtEtaPhiMCandidate")
+	pnubar = ak.zip(pnubar, with_name="PtEtaPhiMCandidate")
+	pbjets = ak.zip(pbjets, with_name="PtEtaPhiMCandidate")
+	pbbarjets = ak.zip(pbbarjets, with_name="PtEtaPhiMCandidate")
 
 	return pnu, pnubar, pbjets, pbbarjets, mask_events_withsol
-
-def obj_reco(leptons, antileptons, neutrinos, antineutrinos, bjets, bbarjets, mask_events):
-
-	wm      = leptons.p4 + antineutrinos.p4
-	wp      = antileptons.p4 + neutrinos.p4
-	top     = antileptons.p4 + neutrinos.p4 + bjets.p4
-	antitop = leptons.p4 + antineutrinos.p4 + bbarjets.p4
-	tt 		= top + antitop
-
-	w_minus = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
-	w_plus  = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
-	t       = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
-	tbar    = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
-	ttbar   = {'pt' : [], 'eta' : [], 'phi' : [], 'mass' : []}
-
-	def get_var(object, varname, default=-999.9):
-
-		default = ak.from_iter(len(mask_events)*[default])
-		values = ak.max(getattr(object, varname), axis=1)
-		var    = ak.where(mask_events, values, default)
-		return ak.from_iter(var)
-
-	for varname in t.keys():
-		if varname == 'eta':
-			default = -9.
-		else:
-			default = -999.9
-		w_minus[varname] = get_var(wm, varname, default)
-		w_plus[varname]  = get_var(wp, varname, default)
-		t[varname]       = get_var(top, varname, default)
-		tbar[varname]    = get_var(antitop, varname, default)
-		ttbar[varname]   = get_var(tt, varname, default)
-
-	return w_minus, w_plus, t, tbar, ttbar
-
-"""
-def w_mass(leptons, neutrinos, mask_events):
-	
-	lepW = leptons.p4 + neutrinos.p4
-	#for ievt in range(mask_events):
-	#	if mask_events[i] == False:
-	m_w = lepW.mass
-	m_w_filled = []
-	for (i, mass) in enumerate(m_w):
-		if mask_events[i]:
-			m_w_filled.append(mass[0])
-		else:
-			m_w_filled.append(-999.9)
-
-	return ak.from_iter(m_w_filled)
-
-def t_mass(leptons, neutrinos, bjets, mask_events):
-	
-	top = leptons.p4 + neutrinos.p4 + bjets.p4
-	#for ievt in range(mask_events):
-	#	if mask_events[i] == False:
-	m_t = top.mass
-	m_t_filled = []
-	for (i, mass) in enumerate(m_t):
-		if mask_events[i]:
-			m_t_filled.append(mass[0])
-		else:
-			m_t_filled.append(-999.9)
-
-	return ak.from_iter(m_t_filled)
-
-def top_reco(leptons, antileptons, neutrinos, antineutrinos, bjets, bbarjets, mask_events):
-
-	top     = antileptons.p4 + neutrinos.p4 + bjets.p4
-	antitop = leptons.p4 + antineutrinos.p4 + bbarjets.p4
-	tt 		= top + antitop
-
-	m_tt = tt.mass
-	m_tt_filled = []
-	for (i, mass) in enumerate(m_tt):
-		if mask_events[i]:
-			m_tt_filled.append(mass[0])
-		else:
-			m_tt_filled.append(-999.9)
-
-	return ak.from_iter(m_tt_filled)
-"""
