@@ -133,7 +133,8 @@ class ttHbb(processor.ProcessorABC):
 		'deltaPhiHiggsTopbar'		: None,
 		'deltaPhiHiggsTT'			: None,
 		'deltaPhiTopTopbar'			: None,
-		'signal'					: None,
+		'ttHbb_label'				: None,
+		'weights_nominal'			: None,
 		}
 		#self._vars_to_plot = processor.dict_accumulator({
 		#	'leading_lepton_pt'         : None,
@@ -542,7 +543,8 @@ class ttHbb(processor.ProcessorABC):
 		'deltaPhiHiggsTopbar'		: deltaPhiHiggsTopbar,
 		'deltaPhiHiggsTT'			: deltaPhiHiggsTT,
 		'deltaPhiTopTopbar'			: deltaPhiTopTopbar,
-		'signal'					: signal_label,
+		'ttHbb_label'				: signal_label,
+		'weights_nominal'			: weights["nominal"],
 		}
 		self._vars_to_plot = vars_to_plot.copy()
 		for var in self._vars_to_plot.keys():
@@ -550,7 +552,14 @@ class ttHbb(processor.ProcessorABC):
 				continue
 			#print(self._vars_to_plot[var])
 			mask = self._mask_events['basic']
-			output[var] = output[var] + processor.column_accumulator(ak.to_numpy(self._vars_to_plot[var][mask]))
+
+			# 0-padding for the AK4 jet variables and angular variables
+			if var in ['leading_jet_pt', 'leading_jet_eta', 'leading_jet_phi', 'leading_jet_mass', 'deltaRHiggsTop', 'deltaRHiggsTopbar', 'deltaRHiggsTT']:
+				column = ak.fill_none(self._vars_to_plot[var][mask], 0.)
+				column = ak.where(column != float('inf'), column, ak.zeros_like(column))
+				output[var] = output[var] + processor.column_accumulator(ak.to_numpy(column))
+			else:
+				output[var] = output[var] + processor.column_accumulator(ak.to_numpy(self._vars_to_plot[var][mask]))
 		#output['leading_lepton_pt'] = output['leading_lepton_pt'] + processor.column_accumulator(ak.to_numpy(leading_lepton_pt))
 
 		vars2d_to_plot = {
@@ -660,11 +669,14 @@ class ttHbb(processor.ProcessorABC):
 			os.makedirs(hdf_dir)
 		# Minimal input set, only leading jet, lepton and fatjet observables
 		# No top-related variables used
-		input_vars = ['ngoodjets', 'btags', 'nfatjets', 'met_pt', 'met_phi',
+		input_vars = ['ngoodjets', 'njets', 'btags', 'nfatjets', 'met_pt', 'met_phi',
 					  'leading_jet_pt', 'leading_jet_eta', 'leading_jet_phi', 'leading_jet_mass',
-					  'leadAK8JetPt', 'leadAK8JetEta', 'leadAK8JetPhi', 'leadAK8JetHbb', 'leadAK8JetTau21',
+					  'leadAK8JetPt', 'leadAK8JetEta', 'leadAK8JetPhi', 'leadAK8JetMass', 'leadAK8JetHbb', 'leadAK8JetTau21',
 					  'lepton_plus_pt', 'lepton_plus_eta', 'lepton_plus_phi', 'lepton_plus_mass',
-					  'lepton_minus_pt', 'lepton_minus_eta', 'lepton_minus_phi', 'lepton_minus_mass']
+					  'lepton_minus_pt', 'lepton_minus_eta', 'lepton_minus_phi', 'lepton_minus_mass',
+					  'deltaRHiggsTop', 'deltaRHiggsTopbar', 'deltaRHiggsTT',
+					  'ttHbb_label',
+					  'weights_nominal']
 		for key, value in accumulator.items():
 			if key in input_vars:
 				print(key, value.value)
@@ -800,7 +812,8 @@ if __name__ == "__main__":
 	# Execute
 	output_split = []
 	if args.executor in ['futures', 'iterative']:
-		import uproot4 as uproot
+		#import uproot4 as uproot
+		import uproot
 		uproot.open.defaults["xrootd_handler"] = uproot.source.xrootd.MultithreadedXRootDSource
 		if args.executor == 'iterative':
 			_exec = processor.iterative_executor

@@ -700,7 +700,8 @@ histogram_settings = {
         'deltaPhiHiggsTopbar'       : {'binning' : (0,pi,65),    'xlim' : (0,pi),   'xlabel' : r'${\Delta}\phi_{H,\bar{t}}$'},
         'deltaPhiHiggsTT'           : {'binning' : (0,pi,65),    'xlim' : (0,pi),   'xlabel' : r'${\Delta}\phi_{H,t\bar{t}}$'},
         'deltaPhiTopTopbar'         : {'binning' : (0,pi,65),    'xlim' : (0,pi),   'xlabel' : r'${\Delta}\phi_{t,\bar{t}}$'},
-        'signal'                    : {'binning' : (0,1,51),     'xlim' : (0,1),    'xlabel' : 'signal'},
+        'ttHbb_label'               : {'binning' : (0,1,51),     'xlim' : (0,1),    'xlabel' : 'signal'},
+        'weights_nominal'           : {'binning' : (0,2,51),     'xlim' : (0,2),    'xlabel' : 'weights (nominal)'},
     },
     'variables2d' : {
         'm_top_vs_pnu_x' : {
