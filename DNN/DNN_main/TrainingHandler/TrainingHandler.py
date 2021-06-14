@@ -7,6 +7,7 @@ import configparser
 import numpy as np
 import pandas as pd 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from shutil import copyfile
 
@@ -18,6 +19,7 @@ from keras import metrics
 from keras import losses
 from keras import optimizers
 import keras.backend as K
+import shap
 
 import Grid
 import Configurables
@@ -56,6 +58,8 @@ class TrainingHandler():
         pd_val = pd.concat(pd_val_frames)
         training_variables = self.properties['training-variables'].split(',')
         training_labels = self.properties['training-labels'].split(',')
+        self.training_variables = training_variables
+        self.training_labels = training_labels
         self.tot_events = pd_train.values.shape[0]
         self.properties['number-of-events'] = int(self.properties['number-of-events'])
         self.checkEventNumber()
@@ -141,7 +145,6 @@ class TrainingHandler():
         model = Model.build(self.properties)
 
         if self.properties['save-steps']:
-            print('I am here')
             print(self.properties['save-steps'])
             auto_save = ModelCheckpoint(self.properties['output-folder'] +"/current_model_epoch{epoch:02d}",monitor='val_loss', verbose=1, save_best_only=False, save_weights_only=False, mode='auto', period=1)
             print(auto_save)
@@ -165,4 +168,14 @@ class TrainingHandler():
                             callbacks=[auto_save])
                             #early stop to be implemented
             plot_history([('DNN model', history),],self.properties['output-folder'],self.properties['metrics'])
-        
+        #explainer = shap.Explainer(model)
+        explainer = shap.DeepExplainer(model, self.data_train_scaled[:10000])
+        shap_values = explainer.shap_values(self.data_val_scaled[:1000])
+        #print(shap_values)
+        fig = plt.figure(figsize=(12,24))
+        shap.plots.bar(shap.Explanation(shap_values[0], feature_names=self.training_variables), max_display=len(self.training_variables), show=False)
+        figsize = fig.get_size_inches()
+        fig.set_size_inches(16, figsize[1])
+        #shap.force_plot(explainer.expected_value[0], shap_values[0][0], show=False)
+        plt.savefig(self.properties['output-folder'] + '/feature_importance.pdf')
+        plt.close(fig)

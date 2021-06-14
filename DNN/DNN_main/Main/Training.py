@@ -6,7 +6,7 @@ import sys
 import os
 
 repo= os.environ['NEW_REPO']
-sys.path.append(repo + '/DNN_neutrino_reco/DNN_main/TrainingHandler')
+sys.path.append(repo + '/DNN/DNN_main/TrainingHandler')
 
 import TrainingHandler as th
 
