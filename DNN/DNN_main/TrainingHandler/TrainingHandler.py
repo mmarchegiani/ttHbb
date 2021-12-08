@@ -21,11 +21,13 @@ from keras import optimizers
 import keras.backend as K
 import shap
 
+from xgboost.callback import TrainingCallback, TrainingCheckPoint
+
 import Grid
 import Configurables
 import matplotlib
 matplotlib.use('Agg')
-from plotting_func import plot_history
+from plotting_func import plot_history, plot_bdt
 import Model
 #import new_model
 np.set_printoptions(threshold=sys.maxsize)
@@ -43,7 +45,7 @@ class TrainingHandler():
         self.readProperties()
         self.properties['unfold'] = int(self.properties['unfold'])
         self.properties['save-steps'] = int(self.properties['save-steps'])
-        
+
         pd_train_frames = []
         pd_val_frames = []
         for train_sample in self.properties['data-train'].split(','):
@@ -73,7 +75,7 @@ class TrainingHandler():
 
     def readProperties(self):
         for section in self.config.sections():
-            #remember to convert any config parameters that are not string
+            #remember to convert any config parameters are not string
             for (key, val) in self.config.items(section):
                 self.properties[key] = val
 
@@ -99,9 +101,16 @@ class TrainingHandler():
                     print('parameters' + str(parameters[i]))
                     self.properties[self.grid_order[i]] = parameters[i]
                     model_name += self.grid_order[i][:3] + parameters[i]
-                self.properties['output-folder'] = base_name + '/' + model_name
+                self.properties['output-folder'] = base_name + '/' + model_name.replace('.','')
+                if self.properties['model'] == 'dnn':
+                    self.trainDNN()
+                elif self.properties['model'] == 'bdt':
+                    self.trainBDT()
+        else:
+            if self.properties['model'] == 'dnn':
                 self.trainDNN()
-        else: self.trainDNN()
+            elif self.properties['model'] == 'bdt':
+                self.trainBDT()
         copyfile(self.myconfig, base_name+ "/thisconfig.cfg")
 
     def trainDNN(self):
@@ -168,10 +177,8 @@ class TrainingHandler():
                             callbacks=[auto_save])
                             #early stop to be implemented
             plot_history([('DNN model', history),],self.properties['output-folder'],self.properties['metrics'])
-        #explainer = shap.Explainer(model)
         explainer = shap.DeepExplainer(model, self.data_train_scaled[:10000])
         shap_values = explainer.shap_values(self.data_val_scaled[:1000])
-        #print(shap_values)
         fig = plt.figure(figsize=(12,24))
         shap.plots.bar(shap.Explanation(shap_values[0], feature_names=self.training_variables), max_display=len(self.training_variables), show=False)
         figsize = fig.get_size_inches()
@@ -179,3 +186,76 @@ class TrainingHandler():
         #shap.force_plot(explainer.expected_value[0], shap_values[0][0], show=False)
         plt.savefig(self.properties['output-folder'] + '/feature_importance.pdf')
         plt.close(fig)
+
+    def trainBDT(self):
+        os.system('mkdir ' + self.properties['output-folder'])
+
+        #scaler implementation
+        scaler = StandardScaler()
+        scaler.fit(self.data_train)
+        self.properties['trees'] = int(self.properties['trees'])
+        self.data_train_scaled = scaler.transform(self.data_train)
+        self.data_val_scaled = scaler.transform(self.data_val)
+
+        #joblib.dump(scaler, self.properties['output-folder']+ "/scaler.pkl")
+        dump(scaler, self.properties['output-folder']+ "/scaler.pkl")
+
+        if self.properties['scale-label'] == '1':
+            label_scaler = StandardScaler()
+            if self.properties['output-dim'] == 1:
+                label_scaler.fit(self.labels_train)
+                self.labels_train_scaled = label_scaler.transform(self.labels_train)
+                self.labels_val_scaled = label_scaler.transform(self.labels_val)
+                #self.labels_train = label_scaler.transform(np.expand_dims(self.labels_train,1))
+                #self.labels_val = label_scaler.transform(np.expand_dims(self.labels_val,1))
+            else:
+                label_scaler.fit(self.labels_train)
+                self.labels_train_scaled = label_scaler.transform(self.labels_train)
+                self.labels_val_scaled = label_scaler.transform(self.labels_val)
+                #self.labels_train = label_scaler.transform(self.labels_train)
+                #self.labels_val = label_scaler.transform(self.labels_val)
+
+            #joblib.dump(label_scaler, self.properties['output-folder']+ "/label_scaler.pkl")
+            dump(label_scaler, self.properties['output-folder']+ "/label_scaler.pkl")
+
+        else:
+            self.labels_train_scaled = self.labels_train
+
+        model = Model.build(self.properties)
+
+        if self.properties['save-steps']:
+            print(self.properties['save-steps'])
+            auto_save = TrainingCheckPoint(self.properties['output-folder'] +"/current_model_tree{n_estimators:02d}", name='saved_model', iterations=self.properties['trees'])
+            print(auto_save)
+        else:
+            auto_save = TrainingCheckPoint(self.properties['output-folder'] + "/current_model", name='saved_model', iterations=self.properties['trees'])
+
+        if self.properties['scale-label'] == '1':
+            bdt = model.fit(self.data_train_scaled, self.labels_train_scaled,
+                                eval_metric=self.properties['loss'], eval_set = [(self.data_train_scaled, self.labels_train_scaled), (self.data_val_scaled, self.labels_val_scaled)],
+                                callbacks=[TrainingCallback(), auto_save]
+                                )
+
+        elif self.properties['scale-label'] == '0':
+            print('labels not scaled')
+            bdt = model.fit(self.data_train_scaled, self.labels_train,
+                                eval_metric=self.properties['loss'], eval_set = [(self.data_train_scaled, self.labels_train), (self.data_val_scaled, self.labels_val)],
+                                callbacks=[TrainingCallback(), auto_save]
+                                )
+            plot_bdt([('BDT model', model),],self.properties['output-folder'],self.properties['loss'])
+        #print(bdt.best_ntree_limit)
+        print("Saving BDT model in " + self.properties['output-folder'] + "/model.json")
+        bdt.save_model(self.properties['output-folder'] + "/model.json")
+        #labels_pred = model.predict(self.data_val_scaled)
+        #score = accuracy_score(self.data_val_scaled, labels_pred)
+        """
+        explainer = shap.DeepExplainer(model, self.data_train_scaled[:10000])
+        shap_values = explainer.shap_values(self.data_val_scaled[:1000])
+        fig = plt.figure(figsize=(12,24))
+        shap.plots.bar(shap.Explanation(shap_values[0], feature_names=self.training_variables), max_display=len(self.training_variables), show=False)
+        figsize = fig.get_size_inches()
+        fig.set_size_inches(16, figsize[1])
+        #shap.force_plot(explainer.expected_value[0], shap_values[0][0], show=False)
+        plt.savefig(self.properties['output-folder'] + '/feature_importance.pdf')
+        plt.close(fig)
+        """

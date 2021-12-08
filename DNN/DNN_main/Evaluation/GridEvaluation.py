@@ -11,7 +11,6 @@ import numpy as np
 import fnmatch
 import pickle
 
-from keras.models import load_model
 from sklearn.preprocessing import StandardScaler
 #from sklearn.externals import joblib
 from joblib import dump, load
@@ -34,11 +33,13 @@ class GridEvaluation():
 		self.config = configparser.ConfigParser()
 		self.config.optionxform = str
 		self.config.read(config_file)
-		
+
 		self.trained_models = self.config.get('output','output-folder')
 		training_variables = self.config.get('training', 'training-variables').split(',')
 		training_labels = self.config.get('training', 'training-labels').split(',')
 
+		if not os.path.exists(self.config.get('evaluation','output')):
+			os.makedirs(self.config.get('evaluation','output'))
 		print(">>> Loading datasets ...TEST ")
 
 		self.pd_names = []
@@ -164,22 +165,38 @@ class GridEvaluation():
 	#####################################################################
 
 	def evaluate_all(self):
-		for model_dir in self.dirs:
-			models = os.listdir(self.config.get('output','output-folder') + '/' + model_dir)
-			models = fnmatch.filter(models, self.config.get('evaluation','model-of-interest'))
-			if len(models) == 0:
-				raise ValueError('No models mathcing pattern '+self.config.get('evaluation','model-of-interest')+' found in '+model_dir)
-			if len(models) > 1 and self.config.get('evaluation', 'type') == 'binary':
-				warnings.warn('Only '+models[-1]+' score will be rounded')
-			for model_ep in models:
+		dnn = self.config.get('training', 'model') == 'dnn'
+		bdt = self.config.get('training', 'model') == 'bdt'
+		if dnn:
+			for model_dir in self.dirs:
+				models = os.listdir(self.config.get('output','output-folder') + '/' + model_dir)
+				models = fnmatch.filter(models, self.config.get('evaluation','model-of-interest'))
+				if len(models) == 0:
+					raise ValueError('No models mathcing pattern '+self.config.get('evaluation','model-of-interest')+' found in '+model_dir)
+				if len(models) > 1 and self.config.get('evaluation', 'type') == 'binary':
+					warnings.warn('Only '+models[-1]+' score will be rounded')
+				for model_ep in models:
+					for sample in self.pd_names:
+						self.evaluate( model_dir, model_ep, sample)
+		elif bdt:
+			for model_dir in self.dirs:
 				for sample in self.pd_names:
-					self.evaluate( model_dir, model_ep, sample)
-	
+					self.evaluate( model_dir, "", sample)
+					#self.evaluate( self.config.get('output','output-folder') + '/' + model_dir, "", sample)
+
 	def evaluate(self, model_dir, model_ep, sample):
 		path = self.trained_models + '/' + model_dir
-		
-		model_name = path + '/' + model_ep
-		model = load_model(model_name)
+		dnn = self.config.get('training', 'model') == 'dnn'
+		bdt = self.config.get('training', 'model') == 'bdt'
+		if dnn:
+			from keras.models import load_model
+			model_name = path + '/' + model_ep
+			model = load_model(model_name)
+		elif bdt:
+			from xgboost import XGBClassifier
+			model_name = path + '/model.json'
+			model = XGBClassifier()
+			model.load_model(model_name)
 
 		scaler_name = path + '/scaler.pkl'
 		#scaler = joblib.load(scaler_name)
@@ -187,7 +204,13 @@ class GridEvaluation():
 
 		data_scaled = scaler.transform(self.data_eval[sample])
 
-		pred = model.predict(data_scaled)
+		if dnn:
+			pred = model.predict(data_scaled)
+		elif bdt:
+			#pred = model.predict(data_scaled, ntree_limit=int(self.config.get('evaluation','model-of-interest')))
+			#pred = np.array([[p] for p in pred])
+			pred = model.predict_proba(data_scaled, ntree_limit=int(self.config.get('evaluation','model-of-interest')))
+			pred = np.array([[p] for p in np.array(pred)[:,1]])
 		
 		label_sc_name = path + '/label_scaler.pkl'
 		if os.path.exists(label_sc_name):
@@ -197,28 +220,45 @@ class GridEvaluation():
 			pred = label_scaler.inverse_transform(pred)
 
 		if int(self.config.get('output','save-steps'))==1: # check this!
-			epoch = model_ep[19:]
-			print(">>> Evaluating model " + model_dir + " (epoch " + epoch + ") on sample " + sample.split('.')[0] + " ... ")
-			if pred.shape[1]==1:
-				self.pd_eval[sample][model_dir+'_e'+epoch] = pred
-			else:
-				for cat in range(pred.shape[1]):
-					self.pd_eval[sample][model_dir+'_cat'+str(cat)+'_e'+epoch] = pred[:,cat]
-			#model_label = model_dir + '_e' + epoch
-			hid = model_dir.split('bat')[0].split('hid')[1]
-			neu = model_dir.split('bat')[0].split('hid')[0].split('neu')[1]
-			model_label = '{0} neu {1} hid. layers.'.format(neu,hid)
-		else: 
+			if dnn:
+				epoch = model_ep[19:]
+				#model_label = model_dir + '_e' + epoch
+				hid = model_dir.split('bat')[0].split('hid')[1]
+				neu = model_dir.split('bat')[0].split('hid')[0].split('neu')[1]
+				model_label = '{0} neu {1} hid. layers.'.format(neu,hid)
+				print(">>> Evaluating model " + model_dir + " (epoch " + epoch + ") on sample " + sample.split('.')[0] + " ... ")
+				if pred.shape[1]==1:
+					self.pd_eval[sample][model_dir+'_e'+epoch] = pred
+				else:
+					for cat in range(pred.shape[1]):
+						self.pd_eval[sample][model_dir+'_cat'+str(cat)+'_e'+epoch] = pred[:,cat]
+			elif bdt:
+				tree = self.config.get('evaluation','model-of-interest')
+				dep = model_dir.split('eta')[0].split('max')[1]
+				eta = model_dir.split('max')[1].split('eta')[1]
+				model_label = '{0} depth {1} eta'.format(dep,eta)
+				print(">>> Evaluating model " + model_dir + " (tree " + tree + ") on sample " + sample.split('.')[0] + " ... ")
+				if pred.shape[1]==1:
+					self.pd_eval[sample][model_dir+'_t'+tree] = pred
+				else:
+					for cat in range(pred.shape[1]):
+						self.pd_eval[sample][model_dir+'_cat'+str(cat)+'_t'+tree] = pred[:,cat]
+		else:
 			print(">>> Evaluating model " + model_dir + " on sample " + sample.split('.')[0] + " ... ")
 			if pred.shape[1]==1:
 				self.pd_eval[sample][model_dir+'_pred'] = pred
 			else:
 				for cat in range(pred.shape[1]):
 					self.pd_eval[sample][model_dir+'_cat'+str(cat)+'_pred'] = pred[:,cat]
-			hid = model_dir.split('bat')[0].split('hid')[1]
-			neu = model_dir.split('bat')[0].split('hid')[0].split('neu')[1]
-			model_label = '{0} neu {1} hid. layers.'.format(neu,hid)
-			#model_label = model_dir
+			if dnn:
+				hid = model_dir.split('bat')[0].split('hid')[1]
+				neu = model_dir.split('bat')[0].split('hid')[0].split('neu')[1]
+				model_label = '{0} neu {1} hid. layers.'.format(neu,hid)
+				#model_label = model_dir
+			elif bdt:
+				dep = model_dir.split('eta')[0].split('max')[1]
+				eta = model_dir.split('max')[1].split('eta')[1]
+				model_label = '{0} depth {1} eta'.format(dep,eta)
 
 		if self.config.get('evaluation', 'type') == 'binary' and pred.shape[1]==1:
 			plt.figure(1)
@@ -231,6 +271,7 @@ class GridEvaluation():
 			selection = self.roundScore(pred, thr)
 			self.pd_eval[sample][model_dir+'_rounded_score'] = selection
 			self.pd_eval[sample][model_dir+'_wp'] = thr[0]*np.ones_like(selection)
+			self.pd_eval[sample][model_dir+'_auc'] = roc_auc*np.ones_like(selection)
 			
 			nall = selection.shape[0]
 			comparison = np.ones((nall,1), dtype=bool)
@@ -292,3 +333,4 @@ class GridEvaluation():
 			plt.plot(fp["micro"], tp["micro"], label=model_label)
 			plt.figure(3)
 			plt.plot(fp["macro"], tp["macro"], label=model_label)
+		
