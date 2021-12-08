@@ -1,9 +1,10 @@
-# python dilepton_analysis.py --sample 2017
+	# python dilepton_analysis.py --sample 2017
 
 import argparse
 import os
 import sys
 import json
+import h5py
 from cycler import cycler
 #from pdb import set_trace
 
@@ -17,7 +18,6 @@ from coffea.lumi_tools import LumiMask, LumiData
 from coffea.lookup_tools import extractor
 from coffea.btag_tools import BTagScaleFactor
 from coffea.util import save
-from uproot_methods import TLorentzVectorArray
 
 from lib_analysis import lepton_selection, jet_selection, jet_nohiggs_selection, get_charge_sum, get_dilepton_vars, get_transverse_mass, get_charged_var, get_leading_value, load_puhist_target, compute_lepton_weights, calc_dr, calc_dphi, pnuCalculator, obj_reco
 from definitions_dilepton_analysis import parameters, histogram_settings, samples_info
@@ -57,11 +57,80 @@ class ttHbb(processor.ProcessorABC):
 		  'ones',
 		  'nominal'
 		]
+		self._vars_to_plot = {
+		'muons_pt'					: None,
+		'muons_eta'					: None,
+		'goodmuons_pt'				: None,
+		'goodmuons_eta'				: None,
+		'electrons_pt'				: None,
+		'electrons_eta'				: None,
+		'goodelectrons_pt'			: None,
+		'goodelectrons_eta'			: None,
+		'jets_pt'					: None,
+		'jets_eta'					: None,
+		'goodjets_pt'				: None,
+		'goodjets_eta'				: None,
+		'nleps'             		: None,
+		'njets'             		: None,
+		'ngoodjets'         		: None,
+		'btags'             		: None,
+		'btags_resolved'    		: None,
+		'nfatjets'          		: None,
+		'charge_sum'				: None,
+		'met'               		: None,
+		'mll'						: None,
+		'leading_jet_pt'    		: None,
+		'leading_jet_eta'   		: None,
+		'leading_bjet_pt'    		: None,
+		'leading_bjet_eta'   		: None,
+		'leadAK8JetMass'    		: None,
+		'leadAK8JetPt'      		: None,
+		'leadAK8JetEta'     		: None,
+		'leadAK8JetRho'     		: None,
+		'leadAK8JetHbb'				: None,
+		'leadAK8JetTau21'			: None,
+		'lepton_plus_pt'            : None,
+		'lepton_plus_eta'           : None,
+		'lepton_minus_pt'           : None,
+		'lepton_minus_eta'          : None,
+		'leading_lepton_pt'         : None,
+		'leading_lepton_eta'        : None,
+		'ptll'                      : None,
+		'mt_ww'                     : None,
+		'pnu_x'						: None,
+		'pnu_y'						: None,
+		'pnu_z'						: None,
+		'pnubar_x'					: None,
+		'pnubar_y'					: None,
+		'pnubar_z'					: None,
+		'm_w_plus'					: None,
+		'm_w_minus'					: None,
+		'm_top'						: None,
+		'm_topbar'					: None,
+		'm_tt'						: None,
+		'tt_pt'						: None,
+		'top_pt'					: None,
+		'topbar_pt'					: None,
+		'deltaRBBbar'				: None,
+		'deltaRHiggsTop'			: None,
+		'deltaRHiggsTopbar'			: None,
+		'deltaRHiggsTT'				: None,
+		'deltaRTopTopbar'			: None,
+		'deltaPhiBBbar'				: None,
+		'deltaPhiHiggsTop'			: None,
+		'deltaPhiHiggsTopbar'		: None,
+		'deltaPhiHiggsTT'			: None,
+		'deltaPhiTopTopbar'			: None,
+		}
+		#self._vars_to_plot = processor.dict_accumulator({
+		#	'leading_lepton_pt'         : None,
+		#	})
 
 		self._accumulator = processor.dict_accumulator({
 			"sumw": processor.defaultdict_accumulator(float),
 			"nevts": processor.defaultdict_accumulator(int),
 			"nevts_solved": processor.defaultdict_accumulator(int),
+			"leading_lepton_pt": processor.column_accumulator(np.array([])),
 		})
 
 		for wn in self._weights_list:
@@ -485,6 +554,8 @@ class ttHbb(processor.ProcessorABC):
 		'deltaPhiHiggsTT'			: deltaPhiHiggsTT,
 		'deltaPhiTopTopbar'			: deltaPhiTopTopbar,
 		}
+		self._vars_to_plot = vars_to_plot.copy()
+		output['leading_lepton_pt'] = output['leading_lepton_pt'] + processor.column_accumulator(awkward1.to_numpy(leading_lepton_pt))
 
 		vars2d_to_plot = {
 			'm_top_vs_pnu_x' : {
@@ -584,22 +655,29 @@ class ttHbb(processor.ProcessorABC):
 
 	def postprocess(self, accumulator):
 
-		#print("Neutrino momenta efficiency = ", self._nsolved/self._n2l2b)
+		#print(accumulator['leading_lepton_pt'])
 
-		"""
-		for wn in self._weights_list:
-			if not wn in ['ones', 'nominal']: continue
-			for mask_name in self._mask_events.keys():
-				#if not mask_name in ['basic', '2l2b', '2l2bmw', '2l2bmwmt']: continue
-				for var_name in self._varnames:
-					if var_name.split("_")[0] in ["muons", "goodmuons", "electrons", "goodelectrons", "jets", "goodjets"]:
-						continue
-					fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,6))
-					hist.plot1d(accumulator[f'hist_{var_name}_{mask_name}_weights_{wn}'], overlay='dataset', fill_opts=self._fill_opts, error_opts=self._error_opts, density=True)
-					plt.xlim(*self._variables[var_name]['xlim'])
-					fig.savefig(plot_dir + f'hist_{var_name}_{mask_name}_weights_{wn}' + ".png", dpi=300, format="png")
-					plt.close(ax.figure)
-		"""
+		hdf_dir = "inputs/" + args.output.split(".coffea")[0] + "/"
+		if not os.path.exists(hdf_dir):
+			os.makedirs(hdf_dir)
+		# Minimal input set, only leading jet, lepton and fatjet observables
+		# No top-related variables used
+		input_vars = ['ngoodjets', 'btags', 'nfatjets', 'met',
+					  'leading_jet_pt', 'leading_jet_eta',
+					  'leadAK8JetPt', 'leadAK8JetEta', 'leadAK8JetHbb', 'leadAK8JetTau21',
+					  'leading_lepton_pt', 'leading_lepton_eta']
+		mask = self._mask_events['basic']
+		vars_to_DNN = {key : value[mask] for key, value in self._vars_to_plot.items() if key in input_vars}
+		print("vars_to_DNN = ", vars_to_DNN)
+		inputs = awkward1.Array(vars_to_DNN)
+		print("inputs = ", inputs)
+		filepath = hdf_dir + args.output.replace(".coffea", "_" + dataset + ".h5")
+		print(f"Saving DNN inputs to {filepath}")
+		h5f = h5py.File(filepath, 'w')
+		for k in inputs.fields:
+			print("Create", k)
+			h5f.create_dataset(k, data=inputs[k])
+		h5f.close()
 
 		return accumulator
 
@@ -616,6 +694,7 @@ if __name__ == "__main__":
 	parser.add_argument('-j', '--workers', type=int, default=12, help='Number of workers (cores/threads) to use for multi-worker executors (e.g. futures or condor) (default: %(default)s)')
 	parser.add_argument('-s', '--scaleout', type=int, default=6, help='Number of nodes to scale out to if using slurm/condor. Total number of concurrent threads is ``workers x scaleout`` (default: %(default)s)')
 	parser.add_argument('--voms', default=None, type=str, help='Path to voms proxy, accessible to worker nodes. By default a copy will be made to $HOME.')
+	parser.add_argument('--splitdataset', action='store_true', help='Process each dataset separately.')
 
 	# Debugging
 	#parser.add_argument('--validate', action='store_true', help='Do not process, just check all files are accessible')
@@ -628,6 +707,9 @@ if __name__ == "__main__":
 	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
 	#parser.add_argument('--machine', action='store', choices=['lxplus', 't3', 'local'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
 	args = parser.parse_args()
+
+	if not args.output.endswith(".coffea"):
+		print("Deprecated output format. Only '.coffea' format is allowed for the output file.")
 
 	if args.output == parser.get_default('output'):
 		label = args.samplejson.strip('.json')
@@ -649,6 +731,7 @@ if __name__ == "__main__":
 		is_mc = True
 		lumimask = None
 
+	"""
 	if is_mc:
 		# add information needed for MC corrections
 		parameters["pu_corrections_target"] = load_puhist_target(parameters["pu_corrections_file"])
@@ -660,7 +743,7 @@ if __name__ == "__main__":
 			ext.add_weight_sets([corr])
 		ext.finalize()
 		evaluator = ext.make_evaluator()
-
+	"""
 	# load dataset
 	with open(args.samplejson) as f:
 		sample_dict = json.load(f)
@@ -685,6 +768,9 @@ if __name__ == "__main__":
 				if args.only in sample_dict[key]:
 					sample_dict = dict([(key, [args.only])])
 
+	hist_dir = os.getcwd() + "/histograms/"
+	if not os.path.exists(hist_dir):
+		os.makedirs(hist_dir)
 	processor_instance = ttHbb()
 
 	if args.executor not in ['futures', 'iterative']:
@@ -706,6 +792,7 @@ if __name__ == "__main__":
 
 	#########
 	# Execute
+	output_split = []
 	if args.executor in ['futures', 'iterative']:
 		import uproot4 as uproot
 		uproot.open.defaults["xrootd_handler"] = uproot.source.xrootd.MultithreadedXRootDSource
@@ -713,17 +800,39 @@ if __name__ == "__main__":
 			_exec = processor.iterative_executor
 		else:
 			_exec = processor.futures_executor
-		output = processor.run_uproot_job(sample_dict,
-									treename='Events',
-									processor_instance=processor_instance,
-									executor=_exec,
-									executor_args={
-										'nano' : True,
-										'skipbadfiles':args.skipbadfiles,
-										'schema': processor.NanoAODSchema, 
-										'workers': args.workers},
-									chunksize=args.chunk, maxchunks=args.max
-									)
+		if not args.splitdataset:
+			output = processor.run_uproot_job(sample_dict,
+										treename='Events',
+										processor_instance=processor_instance,
+										executor=_exec,
+										executor_args={
+											'nano' : True,
+											'skipbadfiles':args.skipbadfiles,
+											'schema': processor.NanoAODSchema, 
+											'workers': args.workers},
+										chunksize=args.chunk, maxchunks=args.max
+										)
+		else:
+			hist_dir = hist_dir + args.output.split(".coffea")[0] + "/"
+			if not os.path.exists(hist_dir):
+				os.makedirs(hist_dir)
+			for dataset in sample_dict.keys():
+				print("Processing " + dataset)
+				output = processor.run_uproot_job({dataset : sample_dict[dataset]},
+											treename='Events',
+											processor_instance=processor_instance,
+											executor=_exec,
+											executor_args={
+												'nano' : True,
+												'skipbadfiles':args.skipbadfiles,
+												'schema': processor.NanoAODSchema, 
+												'workers': args.workers},
+											chunksize=args.chunk, maxchunks=args.max
+											)
+				filepath = hist_dir + args.output.replace(".coffea", "_" + dataset + ".coffea")
+				save(output, filepath)
+				print(f"Saving output to {filepath}")
+				output_split.append(output)
 	elif args.executor == 'parsl/slurm':
 		import parsl
 		from parsl.providers import LocalProvider, CondorProvider, SlurmProvider
@@ -733,16 +842,26 @@ if __name__ == "__main__":
 		from parsl.launchers import SrunLauncher
 		from parsl.addresses import address_by_hostname
 
+		#max_jobs = 500
+		#cores_per_node = int(max_jobs/args.scaleout)
+		#cores_per_node = 1
+		#mem_per_node = 4*cores_per_node
+
 		slurm_htex = Config(
 			executors=[
 				HighThroughputExecutor(
 					label="coffea_parsl_slurm",
 					address=address_by_hostname(),
+					worker_debug=True,
 					prefetch_capacity=0,
 					provider=SlurmProvider(
 						channel=LocalChannel(script_dir='logs_parsl'),
 						launcher=SrunLauncher(),
-						max_blocks=(args.scaleout)+10,
+						nodes_per_block=1,
+						#cores_per_node=cores_per_node,
+						#mem_per_node=mem_per_node,
+						#max_blocks=(args.scaleout)+10,
+						max_blocks=args.scaleout,
 						init_blocks=args.scaleout, 
 						partition='wn',
 						worker_init="\n".join(env_extra) + "\nexport PYTHONPATH=$PYTHONPATH:$PWD", 
@@ -756,17 +875,39 @@ if __name__ == "__main__":
 		)
 		dfk = parsl.load(slurm_htex)
 
-		output = processor.run_uproot_job(sample_dict,
-									treename='Events',
-									processor_instance=processor_instance,
-									executor=processor.parsl_executor,
-									executor_args={
-										'skipbadfiles':True,
-										'schema': processor.NanoAODSchema, 
-										'config': None,
-									},
-									chunksize=args.chunk, maxchunks=args.max
-									)
+		if not args.splitdataset:
+			output = processor.run_uproot_job(sample_dict,
+										treename='Events',
+										processor_instance=processor_instance,
+										executor=processor.parsl_executor,
+										executor_args={
+											'nano' : True,
+											'skipbadfiles':True,
+											'schema': processor.NanoAODSchema, 
+											'config': None,
+										},
+										chunksize=args.chunk, maxchunks=args.max
+										)
+		else:
+			for dataset in sample_dict.keys():
+				print("Processing " + dataset)
+				output = processor.run_uproot_job({dataset : sample_dict[dataset]},
+											treename='Events',
+											processor_instance=processor_instance,
+											executor=processor.parsl_executor,
+											executor_args={
+												'nano' : True,											
+												'skipbadfiles':True,
+												'schema': processor.NanoAODSchema, 
+												'config': None,
+											},
+											chunksize=args.chunk, maxchunks=args.max
+											)
+				hist_dir = hist_dir + args.output.split(".coffea")[0] + "/"
+				filepath = hist_dir + args.output.replace(".coffea", "_" + dataset + ".coffea")
+				save(output, filepath)
+				print(f"Saving output to {filepath}")
+				output_split.append(output)
 		
 	elif 'dask' in args.executor:
 		from dask_jobqueue import SLURMCluster, HTCondorCluster
@@ -806,9 +947,17 @@ if __name__ == "__main__":
 										chunksize=args.chunk, maxchunks=args.max
 							)
 
-	hist_dir = os.getcwd() + "/histograms/"
-	if not os.path.exists(hist_dir):
-		os.makedirs(hist_dir)
-	save(output, hist_dir + args.output)
+	if not args.splitdataset:
+		save(output, hist_dir + args.output)
+		print(f"Saving output to {hist_dir + args.output}")
+	else:
+		accumulator = output_split[0]
+		histograms = output_split[0].keys()
+		for histname in histograms:
+			for output in output_split:
+				accumulator[histname].add(output[histname])
 
-	print(f"Saving output to {hist_dir + args.output}")
+		if not os.path.exists(hist_dir):
+			os.makedirs(hist_dir)
+		save(accumulator, hist_dir + args.output)
+		print(f"Saving output to {hist_dir + args.output}")

@@ -5,6 +5,7 @@ import numpy as np
 import math
 import uproot
 from uproot_methods import TLorentzVector
+#from uproot3_methods import TLorentzVector
 
 #from awkward.array.jagged import JaggedArray
 from coffea import hist
@@ -408,9 +409,9 @@ def pnuCalculator(leptons, leptons_bar, bjets, METs):
 					K23 = k2*k3/k4**2
 
 					k22 = ( F**2 - 4*pt2*K1**2
-					        - 4*F*lept.z*K1 )
+							- 4*F*lept.z*K1 )
 					k21 = ( 4*F*(lept.x - lept.z*K2)
-					        - 8*pt2*K12 - 8*lept.x*lept.z*K1 )
+							- 8*pt2*K12 - 8*lept.x*lept.z*K1 )
 					k20 = ( - 4*(lept.energy**2 - lept.x**2) - 4*pt2*K2**2
 							- 8*lept.x*lept.z*K2 )
 					k11 = ( 4*F*(lept.y - lept.z*K3)
