@@ -4,7 +4,7 @@ Framework for accelerated ttH(bb) columnar analysis with Coffea (https://coffeat
 ### Execution on local machine with Futures Executor
 To run the preliminary version of the analysis script:
 ~~~
-python dilepton_analysis_v7.py --executor futures --samples datasets/baseline_samples.json --output test.coffea --workers 16
+python runner.py --workflow dilepton --executor futures --samples datasets/baseline_samples.json --year 2017 --output test.coffea --DNN
 ~~~
 ### Output files
 The output will be stored in two files: in `histograms/test.coffea` the histograms are saved in the `.coffea` format, while in `inputs/test.h5` the arrays are saved to be used as input for the DNN.
