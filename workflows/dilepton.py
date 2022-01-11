@@ -275,10 +275,15 @@ class ttHbbDilepton(processor.ProcessorABC):
 		bjets_resolved = good_jets & (getattr(jets, self.parameters["btagging_algorithm"]) > self.parameters["btagging_WP"])
 		good_fatjets = jet_selection_v7(fatjets, muons, good_muons, self.parameters["fatjets"]) & jet_selection_v7(fatjets, electrons, good_electrons, self.parameters["fatjets"])
 
-		leading_fatjets = ak.pad_none(fatjets[good_fatjets], 1)[:,0]
+		#leading_fatjets = ak.pad_none(fatjets[good_fatjets], 1)[:,0]
+		#print(leading_fatjets)
+		pfake = {'pt' : [-9999.9], 'eta' : [-9999.9], 'phi' : [-9999.9], 'mass' : [-9999.9]}
+		fakeFatJet = ak.zip(pfake, with_name="PtEtaPhiMCandidate")
+		#print("fatjets[good_fatjets]", fatjets[good_fatjets])
+		#leading_fatjets = ak.fill_none(ak.pad_none(fatjets[good_fatjets], 1), fakeFatJet)[:,0]
+		leading_fatjets = ak.fill_none(ak.pad_none(fatjets[good_fatjets], 1), fakeFatJet, axis=None)[:,0]
 
-		#good_jets_nohiggs = good_jets & (jets[good_jets].delta_r(leading_fatjets) > 1.2)
-		good_jets_nohiggs = good_jets & ak.fill_none(jets.delta_r(leading_fatjets) > 1.2, True)
+		good_jets_nohiggs = ( good_jets & (jets.delta_r(leading_fatjets) > 1.2) )
 		bjets = good_jets_nohiggs & (getattr(jets, self.parameters["btagging_algorithm"]) > self.parameters["btagging_WP"])
 		nonbjets = good_jets_nohiggs & (getattr(jets, self.parameters["btagging_algorithm"]) < self.parameters["btagging_WP"])
 
@@ -342,6 +347,10 @@ class ttHbbDilepton(processor.ProcessorABC):
 							(ll.mass > 20) & ((SFOS & ((ll.mass < 76) | (ll.mass > 106))) | not_SFOS) ) # & (selev.btags_resolved < 3)# & (selev.njets > 1)  # & np.invert( (selev.njets >= 4)  )
 		mask_events_OS    = (mask_events_res | mask_events_basic)
 
+		#print("fatjets[good_fatjets]", good_fatjets )
+		#print("mask_events_basic", (selev.nfatjets > 0) )
+		#print("mask_events_basic", ((selev.MET.pt > self.parameters['met']) & (selev.nfatjets > 0) & (selev.btags >= self.parameters['btags'])) )
+
 		# calculate basic variables
 		leading_jet_pt         = ak.pad_none(selev.GoodJet, 1)[:,0].pt
 		leading_jet_eta        = ak.pad_none(selev.GoodJet, 1)[:,0].eta
@@ -378,12 +387,14 @@ class ttHbbDilepton(processor.ProcessorABC):
 
 		lepton_plus_2l2b 	   = get_charged_leptons_v7(selev.GoodElectron, selev.GoodMuon, +1, mask_events_2l2b)
 		lepton_minus_2l2b	   = get_charged_leptons_v7(selev.GoodElectron, selev.GoodMuon, -1, mask_events_2l2b)
-		pnu, pnubar, pb, pbbar, mask_events_2l2bsolved = pnuCalculator_v7(lepton_minus_2l2b, lepton_plus_2l2b, selev.GoodBJet, selev.MET)
+		pnu, pnubar, pb, pbbar, mask_events_2l2bsolved = pnuCalculator_v7(lepton_minus_2l2b, lepton_plus_2l2b, selev.GoodBJet, selev.MET, ak.pad_none(selev.GoodFatJet, 1)[:,0])
 		mask_events_2l2bnotsolved = np.invert(mask_events_2l2bsolved) & mask_events_2l2b
 
 		nEvents_solved = ak.count(events.event[mask_events_2l2bsolved])
 		output['nevts_solved'][dataset] += nEvents_solved
 
+		print("lepton_minus_2l2b:", len(lepton_minus_2l2b))
+		print("pnubar:", len(pnubar))
 		pwm = lepton_minus_2l2b + pnubar
 		pwp = lepton_plus_2l2b + pnu
 		ptop = pwp + pb
@@ -403,8 +414,16 @@ class ttHbbDilepton(processor.ProcessorABC):
 		nNuGen 				   = ak.count(pnuGen.pt[pnuGen.pt>0], axis=1)
 		nNubarGen			   = ak.count(pnubarGen.pt[pnubarGen.pt>0], axis=1)
 
-		ratioNuPtGenReco	   = pnuGen.pt[:,0]/pnu.pt
-		ratioNubarPtGenReco	   = pnubarGen.pt[:,0]/pnubar.pt
+		#for i in range(len(pnuGen.pt)):
+		#	if len(pnuGen.pt[i]) == 0:
+		#		print(selev.LHEPart.pdgId[i])
+
+		# Since not all events at generator level contain a neutrino and an anti-neutrino, we pad pnuGen.pt with a nan negative value
+		ratioNuPtGenReco	   = ak.fill_none(ak.pad_none(pnuGen.pt, 1), -999.9)[:,0]/pnu.pt
+		ratioNubarPtGenReco	   = ak.fill_none(ak.pad_none(pnubarGen.pt, 1), -999.9)[:,0]/pnubar.pt
+
+		ratioNuPtRecoGen	   = pnu.pt/ak.fill_none(ak.pad_none(pnuGen.pt, 1), -999.9)[:,0]
+		ratioNubarPtRecoGen	   = pnubar.pt/ak.fill_none(ak.pad_none(pnubarGen.pt, 1), -999.9)[:,0]
 
 		deltaRNuNuGen		   = pnu.delta_r(ak.pad_none(pnuGen, 1)[:,0])
 		deltaRNubarNubarGen	   = pnubar.delta_r(ak.pad_none(pnubarGen, 1)[:,0])
@@ -745,285 +764,3 @@ class ttHbbDilepton(processor.ProcessorABC):
 			"""
 
 		return accumulator
-
-if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description='Run analysis on baconbits files using processor coffea files')
-	# Inputs
-	#parser.add_argument( '--wf', '--workflow', dest='workflow', choices=['dilepton'], help='Which processor to run', required=True)
-	parser.add_argument('-o', '--output', default=r'hists.coffea', help='Output histogram filename (default: %(default)s)')
-	parser.add_argument('--samples', '--json', dest='samplejson', help='JSON file containing dataset and file locations (default: %(default)s)', required=True)
-	parser.add_argument('--year', type=str, choices=['2016', '2017', '2018'], default='2017', help='Year of data/MC samples')
-
-	# Scale out
-	parser.add_argument('--executor', choices=['iterative', 'futures', 'parsl/slurm', 'dask/condor', 'dask/slurm'], default='futures', help='The type of executor to use (default: %(default)s)')
-	parser.add_argument('-j', '--workers', type=int, default=12, help='Number of workers (cores/threads) to use for multi-worker executors (e.g. futures or condor) (default: %(default)s)')
-	parser.add_argument('-s', '--scaleout', type=int, default=6, help='Number of nodes to scale out to if using slurm/condor. Total number of concurrent threads is ``workers x scaleout`` (default: %(default)s)')
-	parser.add_argument('--voms', default=None, type=str, help='Path to voms proxy, accessible to worker nodes. By default a copy will be made to $HOME.')
-	parser.add_argument('--splitdataset', action='store_true', help='Process each dataset separately.')
-
-	# Debugging
-	#parser.add_argument('--validate', action='store_true', help='Do not process, just check all files are accessible')
-	parser.add_argument('--skipbadfiles', action='store_true', help='Skip bad files.')
-	parser.add_argument('--only', type=str, default=None, help='Only process specific dataset or file')
-	parser.add_argument('--limit', type=int, default=None, metavar='N', help='Limit to the first N files of each dataset in sample JSON')
-	parser.add_argument('--chunk', type=int, default=500000, metavar='N', help='Number of events per process chunk')
-	parser.add_argument('--max', type=int, default=None, metavar='N', help='Max number of chunks to run in total')
-
-	parser.add_argument('--parameters', nargs='+', help='change default parameters, syntax: name value, eg --parameters met 40 bbtagging_algorithm btagDDBvL', default=None)
-	#parser.add_argument('--machine', action='store', choices=['lxplus', 't3', 'local'], help="Machine: 'lxplus' or 't3'", default='lxplus', required=True)
-	args = parser.parse_args()
-
-	if not args.output.endswith(".coffea"):
-		print("Deprecated output format. Only '.coffea' format is allowed for the output file.")
-
-	if args.output == parser.get_default('output'):
-		label = args.samplejson.strip('.json')
-		args.output = f'hists_dilepton_{label}_{args.year}.coffea'
-
-	from definitions_dilepton_analysis import parameters, eraDependentParameters, samples_info
-	parameters.update(eraDependentParameters[args.year])
-	if args.parameters is not None:
-		if len(args.parameters)%2 is not 0:
-			raise Exception('incomplete parameters specified, quitting.')
-		for p,v in zip(args.parameters[::2], args.parameters[1::2]):
-			try: parameters[p] = type(parameters[p])(v) #convert the string v to the type of the parameter already in the dictionary
-			except: print(f'invalid parameter specified: {p} {v}')
-
-	if "Single" in args.samplejson:
-		is_mc = False
-		lumimask = LumiMask(parameters["lumimask"])
-	else:
-		is_mc = True
-		lumimask = None
-
-	"""
-	if is_mc:
-		# add information needed for MC corrections
-		parameters["pu_corrections_target"] = load_puhist_target(parameters["pu_corrections_file"])
-		parameters["btag_SF_target"] = BTagScaleFactor(parameters["btag_SF_{}".format(parameters["btagging_algorithm"])], BTagScaleFactor.MEDIUM)
-		### this computes the lepton weights
-		ext = extractor()
-		print(parameters["corrections"])
-		for corr in parameters["corrections"]:
-			ext.add_weight_sets([corr])
-		ext.finalize()
-		evaluator = ext.make_evaluator()
-	"""
-	# load dataset
-	with open(args.samplejson) as f:
-		sample_dict = json.load(f)
-	
-	for key in sample_dict.keys():
-		sample_dict[key] = sample_dict[key][:args.limit]
-
-	# For debugging
-	if args.only is not None:
-		if args.only in sample_dict.keys():  # is dataset
-			sample_dict = dict([(args.only, sample_dict[args.only])])
-		if "*" in args.only: # wildcard for datasets
-			_new_dict = {}
-			print("Will only proces the following datasets:")
-			for k, v in sample_dict.items():
-				if k.lstrip("/").startswith(args.only.rstrip("*")):
-					print("    ", k)
-					_new_dict[k] = v
-			sample_dict = _new_dict
-		else:  # is file
-			for key in sample_dict.keys():
-				if args.only in sample_dict[key]:
-					sample_dict = dict([(key, [args.only])])
-
-	hist_dir = os.getcwd() + "/histograms/"
-	if not os.path.exists(hist_dir):
-		os.makedirs(hist_dir)
-	processor_instance = ttHbb()
-
-	if args.executor not in ['futures', 'iterative']:
-		# dask/parsl needs to export x509 to read over xrootd
-		if args.voms is not None:
-			_x509_path = args.voms
-		else:
-			_x509_localpath = [l for l in os.popen('voms-proxy-info').read().split("\n") if l.startswith('path')][0].split(":")[-1].strip()
-			_x509_path = os.environ['HOME'] + f'/.{_x509_localpath.split("/")[-1]}'
-			os.system(f'cp {_x509_localpath} {_x509_path}')
-
-		env_extra = [
-			'export XRD_RUNFORKHANDLER=1',
-			f'export X509_USER_PROXY={_x509_path}',
-			#f'export X509_CERT_DIR={os.environ["X509_CERT_DIR"]}',
-			f'export X509_VOMS_DIR={os.environ["X509_VOMS_DIR"]}',
-			'ulimit -u 32768',
-		]
-
-	#########
-	# Execute
-	output_split = []
-	if args.executor in ['futures', 'iterative']:
-		#import uproot4 as uproot
-		import uproot
-		uproot.open.defaults["xrootd_handler"] = uproot.source.xrootd.MultithreadedXRootDSource
-		if args.executor == 'iterative':
-			_exec = processor.iterative_executor
-		else:
-			_exec = processor.futures_executor
-		if not args.splitdataset:
-			output = processor.run_uproot_job(sample_dict,
-										treename='Events',
-										processor_instance=processor_instance,
-										executor=_exec,
-										executor_args={
-											#'nano' : True,
-											'skipbadfiles':args.skipbadfiles,
-											'schema': processor.NanoAODSchema, 
-											'workers': args.workers},
-										chunksize=args.chunk, maxchunks=args.max
-										)
-		else:
-			hist_dir = hist_dir + args.output.split(".coffea")[0] + "/"
-			if not os.path.exists(hist_dir):
-				os.makedirs(hist_dir)
-			for dataset in sample_dict.keys():
-				print("Processing " + dataset)
-				output = processor.run_uproot_job({dataset : sample_dict[dataset]},
-											treename='Events',
-											processor_instance=processor_instance,
-											executor=_exec,
-											executor_args={
-												#'nano' : True,
-												'skipbadfiles':args.skipbadfiles,
-												'schema': processor.NanoAODSchema, 
-												'workers': args.workers},
-											chunksize=args.chunk, maxchunks=args.max
-											)
-				filepath = hist_dir + args.output.replace(".coffea", "_" + dataset + ".coffea")
-				save(output, filepath)
-				print(f"Saving output to {filepath}")
-				output_split.append(output)
-	elif args.executor == 'parsl/slurm':
-		import parsl
-		from parsl.providers import LocalProvider, CondorProvider, SlurmProvider
-		from parsl.channels import LocalChannel
-		from parsl.config import Config
-		from parsl.executors import HighThroughputExecutor
-		from parsl.launchers import SrunLauncher
-		from parsl.addresses import address_by_hostname
-
-		#max_jobs = 500
-		#cores_per_node = int(max_jobs/args.scaleout)
-		#cores_per_node = 1
-		#mem_per_node = 4*cores_per_node
-
-		slurm_htex = Config(
-			executors=[
-				HighThroughputExecutor(
-					label="coffea_parsl_slurm",
-					address=address_by_hostname(),
-					worker_debug=True,
-					prefetch_capacity=0,
-					provider=SlurmProvider(
-						channel=LocalChannel(script_dir='logs_parsl'),
-						launcher=SrunLauncher(),
-						nodes_per_block=1,
-						#cores_per_node=cores_per_node,
-						#mem_per_node=mem_per_node,
-						#max_blocks=(args.scaleout)+10,
-						max_blocks=args.scaleout,
-						init_blocks=args.scaleout, 
-						partition='wn',
-						worker_init="\n".join(env_extra) + "\nexport PYTHONPATH=$PYTHONPATH:$PWD", 
-						walltime='02:00:00'
-					),
-					#cores_per_worker=1,
-					#mem_per_worker=2, #GB
-				)
-			],
-			retries=20,
-		)
-		dfk = parsl.load(slurm_htex)
-
-		if not args.splitdataset:
-			output = processor.run_uproot_job(sample_dict,
-										treename='Events',
-										processor_instance=processor_instance,
-										executor=processor.parsl_executor,
-										executor_args={
-											'nano' : True,
-											'skipbadfiles':True,
-											'schema': processor.NanoAODSchema, 
-											'config': None,
-										},
-										chunksize=args.chunk, maxchunks=args.max
-										)
-		else:
-			for dataset in sample_dict.keys():
-				print("Processing " + dataset)
-				output = processor.run_uproot_job({dataset : sample_dict[dataset]},
-											treename='Events',
-											processor_instance=processor_instance,
-											executor=processor.parsl_executor,
-											executor_args={
-												'nano' : True,											
-												'skipbadfiles':True,
-												'schema': processor.NanoAODSchema, 
-												'config': None,
-											},
-											chunksize=args.chunk, maxchunks=args.max
-											)
-				hist_dir = hist_dir + args.output.split(".coffea")[0] + "/"
-				filepath = hist_dir + args.output.replace(".coffea", "_" + dataset + ".coffea")
-				save(output, filepath)
-				print(f"Saving output to {filepath}")
-				output_split.append(output)
-		
-	elif 'dask' in args.executor:
-		from dask_jobqueue import SLURMCluster, HTCondorCluster
-		from distributed import Client
-		from dask.distributed import performance_report
-
-		if 'slurm' in args.executor:
-			cluster = SLURMCluster(
-				queue='all',
-				cores=args.workers,
-				processes=args.workers,
-				memory="200 GB",
-				retries=10,
-				walltime='00:30:00',
-				env_extra=env_extra,
-			)
-		elif 'condor' in args.executor:
-			cluster = HTCondorCluster(
-				 cores=args.workers, 
-				 memory='2GB', 
-				 disk='2GB', 
-				 env_extra=env_extra,
-			)
-		cluster.scale(jobs=args.scaleout)
-
-		client = Client(cluster)
-		with performance_report(filename="dask-report.html"):
-			output = processor.run_uproot_job(sample_dict,
-										treename='Events',
-										processor_instance=processor_instance,
-										executor=processor.dask_executor,
-										executor_args={
-											'client': client,
-											'skipbadfiles':args.skipbadfiles,
-											#'schema': processor.NanoAODSchema, 
-										},
-										chunksize=args.chunk, maxchunks=args.max
-							)
-
-	if not args.splitdataset:
-		save(output, hist_dir + args.output)
-		print(f"Saving output to {hist_dir + args.output}")
-	else:
-		accumulator = output_split[0]
-		histograms = output_split[0].keys()
-		for histname in histograms:
-			for output in output_split:
-				accumulator[histname].add(output[histname])
-
-		if not os.path.exists(hist_dir):
-			os.makedirs(hist_dir)
-		save(accumulator, hist_dir + args.output)
-		print(f"Saving output to {hist_dir + args.output}")
