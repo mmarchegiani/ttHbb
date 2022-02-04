@@ -129,7 +129,7 @@ if __name__ == '__main__':
     from definitions_dilepton_analysis import parameters, eraDependentParameters, samples_info
     parameters.update(eraDependentParameters[args.year])
     if args.parameters is not None:
-        if len(args.parameters)%2 is not 0:
+        if len(args.parameters)%2 != 0:
             raise Exception('incomplete parameters specified, quitting.')
         for p,v in zip(args.parameters[::2], args.parameters[1::2]):
             try: parameters[p] = type(parameters[p])(v) #convert the string v to the type of the parameter already in the dictionary
